@@ -1,0 +1,24 @@
+#' @title ExampleTonnageData
+#'
+#' @description
+#' Example of material tonnage data that are used to develop the probability
+#' density function for the material tonnages in a single, undiscovered
+#' deposit in a permisssive tract.
+#'
+#' @format
+#' The organization of the data is described in the package User's Guide.
+#'
+#' @details
+#' This data set is the copper-gold subtype of the porphyry copper deposits
+#' that are published in Singer and others (2008).
+#' The data set has 115 deposits and comprises tonnages for ore, copper (Cu),
+#' and gold (Au). The units for tonnage are metric tonnes (mt).
+#'
+#' @references
+#' Singer, D.A., Berger, V.I., and Moring, B.C., 2008, Porphyry copper deposits
+#' of the World-Database and grade and tonnage models, 2008: U.S. Geological
+#' Survey Open-File Report 2008-1155, last accessed April 2016,
+#' at \url{http://pubs.usgs.gov/of/2008/1155/}.
+#'
+"ExampleTonnageData"
+
