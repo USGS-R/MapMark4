@@ -292,10 +292,10 @@ CalcDebugPmf <- function( nDeposits, relProbabilities ) {
 
 #' @title Plot the pmf for the number of undiscovered deposits
 #'
-#' @description Plots the probability mass function for the number of
+#' @description Plots the probability mass function (pmf) for the number of
 #' undiscovered deposits in the permissive tract. If the type is Mark3 or Mark4,
 #' then the alternative complementary cumulative distribution function
-#' is included.
+#' is plotted too.
 #'
 #' @param object
 #' An object of class "NDepositsPmf"
@@ -308,8 +308,7 @@ CalcDebugPmf <- function( nDeposits, relProbabilities ) {
 #' undiscovered deposits.
 #'
 #' @param isUsgsStyle
-#' Make the plot format similar to, but not identical to, the
-#' U.S. Geological Survey style
+#' Make the plot format similar to the U.S. Geological Survey style
 #'
 #' @details
 #' The alternative complementary cumulative distribution function is
@@ -384,7 +383,7 @@ plot.NDepositsPmf <- function( object, isMeanPlotted = TRUE,
 
 #' @title Summarize the pmf for the number of undiscovered deposits
 #'
-#' @description Print a statistical summary of the probability mass function for
+#' @description Summarize the probability mass function (pmf) for
 #' the number of undiscovered deposits in the permissive tract.
 #'
 #' @param object
@@ -634,7 +633,7 @@ getNDepositPmf <- function(object) {
 #' @return \item{nDeposits}{Vector containing the number of undiscovered
 #' deposits that are associated with the non-zero probabilities in the pmf.
 #' The size of vector nDeposits is equal to the size of vector probs.}
-#' @return \item{specifiedAccdf}{If th3 type is "Mark3" or "Mark4", then
+#' @return \item{specifiedAccdf}{If the type is "Mark3" or "Mark4", then
 #' this entry is a vector containing probabilities from the alternative
 #' complementary cumulative distribution function. These probabilites are
 #' associated with the thresholds, which are specified in pmf.arg. Otherwise,

@@ -9,8 +9,7 @@
 #' A character string containing the units.
 #'
 #' @examples
-#' exData <- ExampleTonnageData
-#' pdf1 <- TonnagePdf1(exData, "mt")
+#' pdf1 <- TonnagePdf1(ExampleTonnageData, "mt")
 #' cat(sprintf("Units for tonnage: %s\n", getUnits(pdf1)))
 #'
 #' @export
@@ -74,13 +73,12 @@ getUnits <- function(object) {
 #' \url{http://www.stat.cmu.edu/~cshalizi/ADAfaEPoV/}
 #'
 #' @examples
-#' exData <- ExampleTonnageData
-#' pdf1 <- TonnagePdf1(exData, "mt")
+#' pdf1 <- TonnagePdf1(ExampleTonnageData, "mt")
 #' rs <- getRandomSamples(pdf1, 2518)
 #'
 #' @export
 #'
-getRandomSamples <- function(object, nSamples, seed = NULL, log_rs = FALSE) {
+getRandomSamples1 <- function(object, nSamples, seed = NULL, log_rs = FALSE) {
 
   # The number of random samples that are generated is 2 * nSamples because,
   # if the random samples are truncated, then there will be enough remaining
@@ -94,14 +92,28 @@ getRandomSamples <- function(object, nSamples, seed = NULL, log_rs = FALSE) {
     fhat <- ks::kde(x = object$logTonnages, H = ks::Hpi(x = object$logTonnages))
 
     indices <- sample( 1:nrow(object$logTonnages), N, replace=TRUE )
-    theMeans <- object$logTonnages[indices, , drop = FALSE]
-    theCov <- as.matrix(fhat$H)
 
-    rsLogTonnage <- matrix(NA_real_, nrow = N, ncol=ncol(fhat$x) )
-    for(i in 1:N) {
-      rsLogTonnage[i, ] <- mvtnorm::rmvnorm( 1, mean = theMeans[i, ],
-                                             sigma = theCov)
+    # For each element of indices, a random sample could be drawn. However,
+    # this results in very slow code. Instead, determine the unique indices
+    # (uniqueIndices) and the number of occurrences for each unique index
+    # (counts). Then for uniqueIndices[i], draw counts[i] random samples.
+    tmp <- table(indices)
+    uniqueIndices <- as.integer(names(tmp))
+    counts <- as.vector(tmp, mode = "integer")
+
+    theCov <- as.matrix(fhat$H)
+    rsLogTonnage <- NULL
+    for(i in seq_along(uniqueIndices)) {
+      index <- uniqueIndices[i]
+      rs <- mvtnorm::rmvnorm( counts[i],
+                              mean = object$logTonnages[index, , drop = FALSE],
+                              sigma = theCov)
+      rsLogTonnage <- rbind(rsLogTonnage, rs)
     }
+
+    # Make the draws random
+    rsLogTonnage <- rsLogTonnage[sample.int(N, size = N), ]
+
   } else {
     rsLogTonnage <- mvtnorm::rmvnorm(N,
                                      mean = colMeans(object$logTonnages),
@@ -130,10 +142,10 @@ getRandomSamples <- function(object, nSamples, seed = NULL, log_rs = FALSE) {
 
 }
 
-#' @title Plot the cdf for the material tonnages in a single,
+#' @title Plot the marginal cdfs for the material tonnages in a single,
 #' undiscovered deposit
 #'
-#' @description Plot the cumulative distribution function (cdf)
+#' @description Plot the marginal cumulative distribution functions (cdfs)
 #' for the material tonnages in a single, undiscovered deposit within the
 #' permissive tract. Overlaid on the plot is the
 #' empirical cumulative distribution function (ecdf)
@@ -147,8 +159,7 @@ getRandomSamples <- function(object, nSamples, seed = NULL, log_rs = FALSE) {
 #' in the plot.
 #'
 #' @param isUsgsStyle
-#' Make the plot format similar to, but not identical to, the
-#' U.S. Geological Survey style
+#' Make the plot format similar to the U.S. Geological Survey style
 #'
 #' @details
 #' An internal call to function reshape2::melt generates the
@@ -209,25 +220,13 @@ plot.TonnagePdf1 <- function(object,
 #'
 #' @description Summarize the probability density function (pdf) for the
 #' material tonnages in a single, undiscovered deposit within the permissive
-#' tract. Summary statistics are calculated for both
-#' the observed material tonnages and
-#' the pdf that represents those tonnages.
+#' tract.
 #'
 #' @param object
 #' An object of class "TonnagePdf1"
 #'
 #' @param nDigits
 #' Number of signficant digits.
-#'
-#' @details
-#' The summary statistics for the pdf are calculated from
-#' random samples of that pdf.
-#'
-#' It is common that the summary statistics for the observed material
-#' tonnages differ somewhat from the summary statistics for the pdf, especially
-#' when the pdf is truncated. The reason for the difference is that tonnages
-#' typically have an enormous range, making the summary statistics somewhat
-#' non-robust.
 #'
 #' @examples
 #' pdf1 <- TonnagePdf1(ExampleTonnageData, "mt")
@@ -251,6 +250,42 @@ summary.TonnagePdf1 <- function(object, nDigits = 2) {
   for(i in 1:length(object$matNames)) {
     cat( sprintf( "%s    ", object$matNames[i] ))
   }
+
+}
+
+#' @title Print checks of the
+#' pdf for the material tonnages in a single, undiscovered
+#' deposit
+#'
+#' @description Print checks of the
+#' probability density function (pdf) for the
+#' material tonnages in a single, undiscovered deposit within the permissive
+#' tract. Summary statistics are calculated for both
+#' the observed material tonnages and the pdf that represents those tonnages.
+#'
+#' @param object
+#' An object of class "TonnagePdf1"
+#'
+#' @param nDigits
+#' Number of signficant digits.
+#'
+#' @details
+#' The summary statistics for the pdf are calculated from
+#' random samples of that pdf.
+#'
+#' It is common that the summary statistics for the observed material
+#' tonnages differ somewhat from the summary statistics for the pdf, especially
+#' when the pdf is truncated. The reason for the difference is that tonnages
+#' typically have an enormous range, making the summary statistics somewhat
+#' non-robust.
+#'
+#' @examples
+#' pdf1 <- TonnagePdf1(ExampleTonnageData, "mt", pdfType = "empirical")
+#' printChecks.TonnagePdf1(pdf1)
+#'
+#' @export
+#'
+printChecks.TonnagePdf1 <- function(object, nDigits = 3) {
 
   cat( sprintf( "\n\n"))
   cat( sprintf( "Summary statistics for the observed material tonnages:\n" ))
@@ -284,6 +319,7 @@ summary.TonnagePdf1 <- function(object, nDigits = 2) {
 
 }
 
+
 #' @title Construct the pdf for the material tonnages in a single,
 #' undiscovered deposit
 #'
@@ -312,7 +348,7 @@ summary.TonnagePdf1 <- function(object, nDigits = 2) {
 #'
 #' @param nRandomSamples
 #' Number of random samples used to compute summary statistics and the
-#' cumulative distribution function.
+#' marginal cumulative distribution functions.
 #'
 #' @param seed
 #' Seed for the random number generator.

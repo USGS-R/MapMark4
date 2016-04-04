@@ -19,21 +19,21 @@ getTractId <- function(object) {
   return(object$tractId)
 }
 
-#' @title Print the meta data for the probability calculations
+#' @title Summarize the metadata for the probability calculations
 #'
-#' @description Print the meta data for the probability calculations for one
-#' permissive tract.
+#' @description Summarize the metadata for the probability calculations for
+#' the permissive tract.
 #'
 #' @param object
 #' An object of class "Metadata"
 #'
 #' @examples
 #' metaData <- Metadata("Lucky Strike PT", "PT001")
-#' print(metaData)
+#' summary(metaData)
 #'
 #' @export
 #'
-print.Metadata <- function(object) {
+summary.Metadata <- function(object) {
 
   cat(sprintf("Meta data for the permissive tract\n"))
   cat(sprintf("Name: %s\n", object$tractName))
@@ -67,7 +67,8 @@ print.Metadata <- function(object) {
 #' A description of the permissive tract.
 #'
 #' @details
-#' Parameter \code{tractId}, which is a character string, may be used to file
+#' Parameter \code{tractId}, which is a character string, may be used to
+#' generate file
 #' names associated with the probability calculations. Consequently, it is
 #' recommended that \code{tractId} be suitable for a file name. That is,
 #' \code{tractId}
@@ -82,7 +83,7 @@ print.Metadata <- function(object) {
 #' @return \item{call}{Function call}
 #'
 #' @examples
-#' meta <- Metadata("Lucky Strike PT", "PT001", "mt")
+#' meta <- Metadata("Lucky Strike PT", "PT001")
 #'
 #' @export
 #'

@@ -1,8 +1,39 @@
-#' @title Plot the pdf for the material tonnages in the permissive tract
+#' @title Get random samples from the pdf for the total
+#' material tonnages in
+#' all undiscovered deposits within the permissive tract
 #'
-#' @description Plot the probability density function (pdf)
-#' for the material tonnages in the
-#' permissive tract.
+#' @description Get random samples from the probability density function (pdf)
+#' for the total material tonnages in all undiscovered deposits within
+#' the permissive tract.
+#'
+#' @param object
+#' An object of class "TonnagePdfPT"
+#'
+#' @return
+#' Matrix comprising random samples of
+#' the total material tonnages in all undiscovered deposits within
+#' the permissive tract and the associated
+#' number of undiscovered deposits.
+#'
+#' @examples
+#' pmf <- NDepositsPmf( "NegBinomial", list(theMean=5,theStdDev=4), "" )
+#' pdf1 <- TonnagePdf1(ExampleTonnageData, "mt", pdfType = "normal")
+#' pdfPT <- TonnagePdfPT(pmf, pdf1)
+#' getRandomSamples(pdfPT)
+#'
+#' @export
+#'
+getRandomSamplesPT <- function(object) {
+  return(object$rs)
+}
+
+#' @title Plot the marginal pdfs for the total material tonnages in
+#' all undiscovered deposits within the permissive
+#' tract
+#'
+#' @description Plot the marginal probability density functions (pdfs)
+#' for the total material tonnages in all undiscovered deposits within
+#' the permissive tract.
 #'
 #' @param object
 #' An object of class "TonnagePdf1".
@@ -12,13 +43,7 @@
 #' in the plot.
 #'
 #' @param isUsgsStyle
-#' Make the plot format similar to, but not identical to, the
-#' U.S. Geological Survey style
-#'
-#' @details
-#' An internal call to function reshape2::melt generates the
-#' message "No id variables; using all as measure variables", which should
-#' be ignored.
+#' Make the plot format similar to the U.S. Geological Survey style
 #'
 #' @examples
 #' pmf <- NDepositsPmf( "NegBinomial", list(theMean=5,theStdDev=4), "" )
@@ -32,11 +57,9 @@ plot.TonnagePdfPT <- function(object,
                              whichMatTonnage = object$matNames,
                              isUsgsStyle = TRUE) {
 
-  Need to account for zeros
-
   for(i in 1:length(whichMatTonnage)) {
     if(!any(whichMatTonnage[i] == object$matNames)) {
-      stop( sprintf( "Function plot.TonnagePdf1\n" ),
+      stop( sprintf( "Function plot.TonnagePdfPT\n" ),
             sprintf( "Argument whichMatTonnage must match one of the.\n" ),
             sprintf( "materials. The mismatched name is %s\n",
                      whichMatTonnage[i]),
@@ -44,17 +67,57 @@ plot.TonnagePdfPT <- function(object,
     }
   }
 
-  df.rs <- reshape2::melt(object$rs[, whichMatTonnage, drop = FALSE])
-  # After the melt operation, the first column is row number. It is
-  # useless here, so it is removed.
-  df.rs <- df.rs[, -1, drop = FALSE]
-  colnames(df.rs) <- c("Material", "Tonnage")
+  rsTonnage <- object$rs[, whichMatTonnage, drop = FALSE]
+  nPdfs <- ncol( rsTonnage )
+  nSamples <- nrow( rsTonnage )
+  countZeros <- unname(colSums(rsTonnage == 0))
+
+  if(nPdfs > 1){
+    for( j1 in 1:(nPdfs-1) ) {
+      for( j2 in (j1+1):nPdfs ){
+        if(!identical(countZeros[j1], countZeros[j2]) ) {
+          stop( sprintf( "Function plot.TonnagePdf1\n" ),
+                sprintf( "Number of zeros must be equal for all materials\n" ),
+                sprintf( "Material: %s  Number of zeros: %d\n",
+                         whichMatTonnage[j1], countZeros[j1] ),
+                sprintf( "Material: %s  Number of zeros: %d\n",
+                         whichMatTonnage[j2], countZeros[j2] ),
+                call. = FALSE )
+        }
+      }
+    }
+  }
+
+  rsTonnage[rsTonnage == 0] <- NA
+  rsLogTonnage <- log10(rsTonnage)
+
+  probZero <- countZeros[1] / nSamples
+
+  theRange <- range(rsLogTonnage, na.rm = TRUE)
+  margin <- 0.05 * diff(theRange)
+  theRange[1] <- theRange[1] - margin
+  theRange[2] <- theRange[2] + margin
+
+  df <- NULL
+  for( j in 1:nPdfs ) {
+
+    tmp1 <- density( rsLogTonnage[, j],
+                    from = theRange[1], to = theRange[2], na.rm = TRUE)
+
+    tmp2 <- data.frame( Material = rep.int(whichMatTonnage[j], length(tmp1$y)),
+                        Tonnage = 10^tmp1$x,
+                        Density = tmp1$y * ( 1 - probZero ))
+    df <- rbind(df, tmp2)
+  }
 
   xLabel <- paste("Tonnage (", object$units, ")", sep = "")
+  infoText <- paste( "Prob of zero tonnage = ",
+                     round(probZero, digits=3), sep="" )
 
-  p <- ggplot2::ggplot(df.rs) +
-    ggplot2::geom_density(ggplot2::aes(Tonnage, colour = Material)) +
-    ggplot2::scale_x_continuous(name = xLabel, trans = "log10")
+  p <- ggplot2::ggplot(df) +
+    ggplot2::geom_line(ggplot2::aes(x = Tonnage, y = Density, colour = Material)) +
+    ggplot2::scale_x_continuous(name = xLabel, trans = "log10") +
+    ggplot2::ggtitle(infoText)
 
   if(isUsgsStyle)
     p <- p + ggplot2::xlab(paste("Tonnage, in ", object$units, sep = "")) +
@@ -64,9 +127,89 @@ plot.TonnagePdfPT <- function(object,
 
 }
 
-#' @title Summarize the pdf for the material tonnages in the permissive tract
+#' @title Summarize the marginal pdfs for the total material tonnages in all
+#' undiscovered deposits within the permissive tract
 #'
-#' @description Summarize the probability density function (pdf) for the
+#' @description Summarize the marginal probability density functions (pdfs)
+#' for the
+#' total material tonnages in all undiscovered deposits within the permissive
+#' tract.
+#'
+#' @param object
+#' An object of class "TonnagePdfPT"
+#'
+#' @param nDigits
+#' Number of signficant digits.
+#'
+#' @details
+#' The summary statistics include the
+#' 0.05, 0.10, 0.25, 0.50, 0.75, 0.90, and 0.95 quantiles
+#' the arithmetic mean, the probability of zero tonnage,
+#' and the probability of exceeding the arithmetic mean.
+#'
+#' @examples
+#' pmf <- NDepositsPmf( "NegBinomial", list(theMean=5,theStdDev=4), "" )
+#' pdf1 <- TonnagePdf1(ExampleTonnageData, "mt", pdfType = "normal")
+#' pdfPT <- TonnagePdfPT(pmf, pdf1)
+#' summary(pdfPT)
+#'
+#' @export
+#'
+summary.TonnagePdfPT <- function(object, nDigits = 3) {
+
+  CalcTonnageStats <- function( rs )
+  {
+    probs <- c(0.05,0.10,0.25,0.50,0.75,0.90,0.95)
+    labels <- c( paste( "Q_", probs, sep = ""), "Mean", "P(0)", "P(>Mean)" )
+
+    if ( missing( rs ) )
+      return( labels )
+
+    quantiles <- quantile( rs, probs, na.rm = TRUE, names = FALSE )
+    theMean <- mean( rs )
+    p0 <- sum( rs == 0 ) / length( rs )
+    p.exceed.mean <- sum( rs > theMean ) / length( rs )
+
+    statistics <- c( quantiles, theMean, p0, p.exceed.mean )
+    names( statistics ) <- labels
+
+    return( statistics )
+
+  }
+
+  cat(sprintf("\n\n"))
+  cat( sprintf( "Units for material tonnage: %s\n", object$units ))
+
+  theNames <- colnames( object$rs[, -1] )
+  nRowsInTable <- length( theNames )
+
+  statTable <- matrix( NA, nrow = nRowsInTable,
+                       ncol = length( CalcTonnageStats() ) )
+
+  dimnames(statTable) <- list( theNames, CalcTonnageStats() )
+
+  for ( name in theNames )
+    statTable[name,] <- signif( CalcTonnageStats( object$rs[ ,name] ),
+                                digits = nDigits )
+  cat(sprintf("\n\n"))
+  print(statTable)
+
+  cat(sprintf("\n\n"))
+  cat(sprintf("Explanation\n"))
+  cat(sprintf("\"Q_0.05\" is the 0.05 quantile, \"Q_0.1\" is the \n"))
+  cat(sprintf("0.1 quantile, and so on. \"Mean\" is the arithmetic mean.\n"))
+  cat(sprintf("\"P(0)\" is probability of zero tonnage. \"P(>Mean)\"\n"))
+  cat(sprintf("is probability that the tonnage exceeds the arithmetic \n"))
+  cat(sprintf("mean.\n"))
+
+}
+
+#' @title Print the checks of the pdf
+#' for the total material tonnages
+#' in all undiscovered deposits within the permissive tract
+#'
+#' @description Print the checks of the pdf
+#' for the total
 #' material tonnages in all undiscovered deposits within the permissive
 #' tract.
 #'
@@ -77,18 +220,22 @@ plot.TonnagePdfPT <- function(object,
 #' Number of signficant digits.
 #'
 #' @details
-#' The summary statistics for the pdf are calculated from
-#' random samples of the pdf.
+#' The checks were computed in the constructor function
+#' TonnagePdfPT. This function prints those checks in a easy-to-read
+#' format.
+#'
+#' The actual and predicted quantities will differ somewhat, usually in the
+#' third signficant digit.
 #'
 #' @examples
 #' pmf <- NDepositsPmf( "NegBinomial", list(theMean=5,theStdDev=4), "" )
 #' pdf1 <- TonnagePdf1(ExampleTonnageData, "mt", pdfType = "normal")
 #' pdfPT <- TonnagePdfPT(pmf, pdf1)
-#' summary(pdfPT)
+#' printChecks.TonnagePdfPT(pdfPT)
 #'
 #' @export
 #'
-summary.TonnagePdfPT <- function(object, nDigits = 2) {
+printChecks.TonnagePdfPT <- function(object, nDigits = 3) {
 
   cat( sprintf( "Units for material tonnage: %s\n", object$units ))
 
@@ -117,11 +264,12 @@ summary.TonnagePdfPT <- function(object, nDigits = 2) {
 
 }
 
-#' @title Construct the pdf for the material tonnages in the
+#' @title Construct the pdf for the total material tonnages in
+#' all undiscovered deposits within the
 #' permissive tract
 #'
 #' @description Construct the probability density function (pdf) for the
-#' material tonnages in the permissive
+#' total material tonnages in all undiscovered deposits within the permissive
 #' tract. The pdf is not explicitly specified; instead it is implicitly
 #' specified with the random samples.
 #'
@@ -132,7 +280,7 @@ summary.TonnagePdfPT <- function(object, nDigits = 2) {
 #' An object of class "TonnagePdf1"
 #'
 #' @param nRandomSamples
-#' Number of random samples of the material tonnages in the
+#' Number of random samples of the total material tonnages in the
 #' permissive tract. The actual number may differ slightly because of
 #' rounding.
 #'
@@ -145,8 +293,9 @@ summary.TonnagePdfPT <- function(object, nDigits = 2) {
 #'
 #' @return If the input arguments have an error, the R-value NULL is returned.
 #' Otherwise, a list with the following components is returned.
-#' @return \item{totalTonnages}{Matrix comprising random samples of
-#' the total material tonnages in the permissive tract and the associated
+#' @return \item{rs}{Matrix comprising random samples of
+#' the total material tonnages in all undiscovered deposits within
+#' the permissive tract and the associated
 #' number of undiscovered deposits.}
 #' @return \item{units}{Input argument units}
 #' @return \item{matNames}{Names of the materials.}
@@ -202,6 +351,7 @@ TonnagePdfPT <- function(oPmf, oPdf, nRandomSamples = 20000) {
   # require a lot of time.
   rs1 <- getRandomSamples(oPdf, sum(nRs1))
 
+  # Get a subset of rs1
   iStart <- 1
   internalGetRandomSamples <- function(n) {
     i1 <- iStart
