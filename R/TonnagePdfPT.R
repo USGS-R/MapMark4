@@ -1,9 +1,9 @@
-#' @title Get random samples from the pdf for the total
+#' @title Get random samples from the pdf for the
 #' material tonnages in
 #' all undiscovered deposits within the permissive tract
 #'
 #' @description Get random samples from the probability density function (pdf)
-#' for the total material tonnages in all undiscovered deposits within
+#' for the material tonnages in all undiscovered deposits within
 #' the permissive tract.
 #'
 #' @param object
@@ -11,7 +11,7 @@
 #'
 #' @return
 #' Matrix comprising random samples of
-#' the total material tonnages in all undiscovered deposits within
+#' the material tonnages in all undiscovered deposits within
 #' the permissive tract and the associated
 #' number of undiscovered deposits.
 #'
@@ -19,7 +19,7 @@
 #' pmf <- NDepositsPmf( "NegBinomial", list(theMean=5,theStdDev=4), "" )
 #' pdf1 <- TonnagePdf1(ExampleTonnageData, "mt", pdfType = "normal")
 #' pdfPT <- TonnagePdfPT(pmf, pdf1)
-#' getRandomSamples(pdfPT)
+#' getRandomSamplesPT(pdfPT)
 #'
 #' @export
 #'
@@ -27,12 +27,12 @@ getRandomSamplesPT <- function(object) {
   return(object$rs)
 }
 
-#' @title Plot the marginal pdfs for the total material tonnages in
-#' all undiscovered deposits within the permissive
-#' tract
+#' @title Plot the univariate, marginal pdfs for the material tonnages in
+#' all undiscovered deposits within the permissive tract
 #'
-#' @description Plot the marginal probability density functions (pdfs)
-#' for the total material tonnages in all undiscovered deposits within
+#' @description Plot the unvariate, marginal probability density
+#' functions (pdfs)
+#' for the material tonnages in all undiscovered deposits within
 #' the permissive tract.
 #'
 #' @param object
@@ -127,12 +127,13 @@ plot.TonnagePdfPT <- function(object,
 
 }
 
-#' @title Summarize the marginal pdfs for the total material tonnages in all
+#' @title Summarize the univariate, marginal pdfs for the material
+#' tonnages in all
 #' undiscovered deposits within the permissive tract
 #'
-#' @description Summarize the marginal probability density functions (pdfs)
-#' for the
-#' total material tonnages in all undiscovered deposits within the permissive
+#' @description Summarize the univariate, marginal probability density
+#' functions (pdfs) for the
+#' material tonnages in all undiscovered deposits within the permissive
 #' tract.
 #'
 #' @param object
@@ -205,12 +206,10 @@ summary.TonnagePdfPT <- function(object, nDigits = 3) {
 }
 
 #' @title Print the checks of the pdf
-#' for the total material tonnages
-#' in all undiscovered deposits within the permissive tract
+#' for the material tonnages in all undiscovered deposits within the permissive tract
 #'
-#' @description Print the checks of the pdf
-#' for the total
-#' material tonnages in all undiscovered deposits within the permissive
+#' @description Print the checks of the probability density function (pdf)
+#' for the material tonnages in all undiscovered deposits within the permissive
 #' tract.
 #'
 #' @param object
@@ -231,7 +230,7 @@ summary.TonnagePdfPT <- function(object, nDigits = 3) {
 #' pmf <- NDepositsPmf( "NegBinomial", list(theMean=5,theStdDev=4), "" )
 #' pdf1 <- TonnagePdf1(ExampleTonnageData, "mt", pdfType = "normal")
 #' pdfPT <- TonnagePdfPT(pmf, pdf1)
-#' printChecks.TonnagePdfPT(pdfPT)
+#' printChecks(pdfPT)
 #'
 #' @export
 #'
@@ -264,12 +263,12 @@ printChecks.TonnagePdfPT <- function(object, nDigits = 3) {
 
 }
 
-#' @title Construct the pdf for the total material tonnages in
+#' @title Construct the pdf for the material tonnages in
 #' all undiscovered deposits within the
 #' permissive tract
 #'
 #' @description Construct the probability density function (pdf) for the
-#' total material tonnages in all undiscovered deposits within the permissive
+#' material tonnages in all undiscovered deposits within the permissive
 #' tract. The pdf is not explicitly specified; instead it is implicitly
 #' specified with the random samples.
 #'
@@ -280,7 +279,8 @@ printChecks.TonnagePdfPT <- function(object, nDigits = 3) {
 #' An object of class "TonnagePdf1"
 #'
 #' @param nRandomSamples
-#' Number of random samples of the total material tonnages in the
+#' Number of random samples representing the pdf for the  material tonnages
+#' in all undiscovered deposits within the
 #' permissive tract. The actual number may differ slightly because of
 #' rounding.
 #'
@@ -292,29 +292,23 @@ printChecks.TonnagePdfPT <- function(object, nDigits = 3) {
 #' deviation vector are calculated from the predicted covariance matrix.
 #'
 #' @return If the input arguments have an error, the R-value NULL is returned.
-#' Otherwise, a list with the following components is returned.
-#' @return \item{rs}{Matrix comprising random samples of
-#' the total material tonnages in all undiscovered deposits within
-#' the permissive tract and the associated
-#' number of undiscovered deposits.}
+#' Otherwise, a list with the following components is returned. Note that
+#' these components pertain to the material tonnages in all undiscovered
+#' deposits within the permissive tract.
+#' @return \item{rs}{Matrix comprising the random samples of
+#' the material tonnages.}
 #' @return \item{units}{Input argument units}
 #' @return \item{matNames}{Names of the materials.}
-#' @return \item{theMean}{Mean vector for the total material tonnages in
-#' the permissive tract.}
-#' @return \item{theCov}{Covariance matrix for the total material tonnages in
-#' the permissive tract.}
-#' @return \item{theCor}{Correlation matrix for the total material tonnages in
-#' the permissive tract.}
-#' @return \item{theSd}{Standard deviation vector for the total material
-#' tonnages in the permissive tract.}
-#' @return \item{predMean}{Predicted mean vector for the total material
-#' tonnages in the permissive tract.}
-#' @return \item{predCov}{Predicted covariance matrix for the total material
-#' tonnages in the permissive tract.}
-#' @return \item{predCor}{Predicted correlation matrix for the total material
-#' tonnages in the permissive tract.}
-#' @return \item{predSd}{Predicted standard deviation vector for the total
-#' material tonnages in the permissive tract.}
+#' @return \item{theMean}{Mean vector of the material tonnages.}
+#' @return \item{theCov}{Covariance matrix of the material tonnages.}
+#' @return \item{theCor}{Correlation matrix of the material tonnages.}
+#' @return \item{theSd}{Standard deviation vector of the material tonnages.}
+#' @return \item{predMean}{Predicted mean vector of the material tonnages.}
+#' @return \item{predCov}{Predicted covariance matrix of the material tonnages.}
+#' @return \item{predCor}{Predicted correlation matrix of the material
+#' tonnages.}
+#' @return \item{predSd}{Predicted standard deviation vector of the
+#' material tonnages.}
 #' @return \item{call}{Function call}
 #'
 #' @references
@@ -349,7 +343,7 @@ TonnagePdfPT <- function(oPmf, oPdf, nRandomSamples = 20000) {
   # All of the random samples that are needed for the computations
   # It is done this way because repeated calls to getRandomSamples can
   # require a lot of time.
-  rs1 <- getRandomSamples(oPdf, sum(nRs1))
+  rs1 <- getRandomSamples1(oPdf, sum(nRs1))
 
   # Get a subset of rs1
   iStart <- 1

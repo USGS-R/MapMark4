@@ -22,7 +22,7 @@ test_that("Statistics for pdf and observed data match, case 1",{
 
   # number of random samples
   N <- 1000
-  rs <- getRandomSamples(pdf1, 1000, seed = 7, log_rs = TRUE)
+  rs <- getRandomSamples1(pdf1, 1000, seed = 7, log_rs = TRUE)
 
   # min
   rsMin <- apply(rs, 2, min)
@@ -61,7 +61,7 @@ test_that("Statistics for pdf and observed data match, case 2",{
 
   # number of random samples
   N <- 1000
-  rs <- getRandomSamples(pdf1, 1000, seed = 7, log_rs = TRUE)
+  rs <- getRandomSamples1(pdf1, 1000, seed = 7, log_rs = TRUE)
 
   # min
   rsMin <- apply(rs, 2, min)
@@ -99,7 +99,7 @@ test_that("Statistics for pdf and observed data match, case 3",{
 
   # number of random samples
   N <- 1000
-  rs <- getRandomSamples(pdf1, N, seed = 7, log_rs = TRUE)
+  rs <- getRandomSamples1(pdf1, N, seed = 7, log_rs = TRUE)
 
   # mean
   # The bounds for the mean of the random samples are calculated with the
@@ -124,7 +124,7 @@ test_that("Statistics for pdf and observed data match, case 4",{
 
   # number of random samples
   N <- 1000
-  rs <- getRandomSamples(pdf1, N, seed = 7, log_rs = TRUE)
+  rs <- getRandomSamples1(pdf1, N, seed = 7, log_rs = TRUE)
 
   # Use the hypothesis test for the multivariate mean. The confidence level
   # is 0.99

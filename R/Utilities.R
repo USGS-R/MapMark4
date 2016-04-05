@@ -1,3 +1,6 @@
+#' @export
+printChecks <- function(z) UseMethod("printChecks")
+
 #' @title Summarize the probability calculations
 #'
 #' @description Summarize the probability calculations for the

@@ -411,7 +411,7 @@ summary.NDepositsPmf <- function( object) {
 
 }
 
-#' @title Get the pmf for number of undiscovered deposits
+#' @title Get the pmf for the number of undiscovered deposits
 #'
 #' @description Get the probability mass function (pmf)
 #' for the number of undiscovered deposits in the permissive tract.
@@ -438,16 +438,20 @@ getNDepositPmf <- function(object) {
 
 #' @title Construct the pmf for the number of undiscovered deposits
 #'
-#' @description Construct the probability mass function for the number of
+#' @description Construct the probability mass function (pmf) for the number of
 #' undiscovered deposits within the permissive tract
 #'
-#' @param type               The type of pmf (See Details).
-#' @param pmf.args           The arguments characterizing the specified type
-#'                           (See Details).
-#' @param description        A short description of the pmf.
+#' @param type
+#' Character string with the type of pmf (See Details).
+#'
+#' @param pmf.args
+#' List with the arguments characterizing the specified type (See Details).
+#'
+#' @param description
+#' Character string with a short description of the pmf.
 #'
 #' @details
-#' The type is a character string and must be one of "Mark3", "Mark4",
+#' The type must be one of "Mark3", "Mark4",
 #' "UserSpecified", "Poisson", "NegBinomial", or "Debug". Each type has
 #' different arguments, which are specified in pmf.args. The arguments for
 #' each type are described below.

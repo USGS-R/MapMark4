@@ -74,7 +74,7 @@ getUnits <- function(object) {
 #'
 #' @examples
 #' pdf1 <- TonnagePdf1(ExampleTonnageData, "mt")
-#' rs <- getRandomSamples(pdf1, 2518)
+#' rs <- getRandomSamples1(pdf1, 2518)
 #'
 #' @export
 #'
@@ -142,10 +142,11 @@ getRandomSamples1 <- function(object, nSamples, seed = NULL, log_rs = FALSE) {
 
 }
 
-#' @title Plot the marginal cdfs for the material tonnages in a single,
-#' undiscovered deposit
+#' @title Plot the univariate, marginal cdfs for the material tonnages
+#' in a single, undiscovered deposit
 #'
-#' @description Plot the marginal cumulative distribution functions (cdfs)
+#' @description Plot the univariate, marginal cumulative distribution
+#' functions (cdfs)
 #' for the material tonnages in a single, undiscovered deposit within the
 #' permissive tract. Overlaid on the plot is the
 #' empirical cumulative distribution function (ecdf)
@@ -281,7 +282,7 @@ summary.TonnagePdf1 <- function(object, nDigits = 2) {
 #'
 #' @examples
 #' pdf1 <- TonnagePdf1(ExampleTonnageData, "mt", pdfType = "empirical")
-#' printChecks.TonnagePdf1(pdf1)
+#' printChecks(pdf1)
 #'
 #' @export
 #'
@@ -464,7 +465,7 @@ TonnagePdf1 <- function(obsTonnages,
                 theObsSd = theObsSd,
                 theObsCor = theObsCor)
 
-  rval$rs <- getRandomSamples(rval, nRandomSamples, seed = seed)
+  rval$rs <- getRandomSamples1(rval, nRandomSamples, seed = seed)
   rval$theMean <- colMeans(rval$rs)
   rval$theCov <- cov(rval$rs)
   rval$theSd <- sqrt(diag(rval$theCov))
