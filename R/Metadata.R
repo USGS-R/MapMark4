@@ -36,11 +36,13 @@ getTractId <- function(object) {
 summary.Metadata <- function(object) {
 
   cat(sprintf("Meta data for the permissive tract\n"))
+  cat(sprintf("------------------------------------------------------------\n"))
   cat(sprintf("Name: %s\n", object$tractName))
   cat(sprintf("Identifier: %s\n", object$tractId))
   cat(sprintf("Area: %s\n", object$tractArea))
   cat(sprintf("Number of known deposits: %d\n", object$nKnownDeposits))
   cat(sprintf("Description: %s\n", object$description))
+  cat(sprintf("\n\n\n\n"))
 
 }
 
@@ -88,9 +90,9 @@ summary.Metadata <- function(object) {
 #' @export
 #'
 Metadata <- function(tractName, tractId,
-                     tractArea = "",
+                     tractArea = "(not specified)",
                      nKnownDeposits = 0,
-                     description = "") {
+                     description = "(not specified)") {
 
   rval <- list( tractName = tractName,
                 tractId = tractId,

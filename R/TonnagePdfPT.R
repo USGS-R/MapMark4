@@ -19,11 +19,11 @@
 #' pmf <- NDepositsPmf( "NegBinomial", list(theMean=5,theStdDev=4), "" )
 #' pdf1 <- TonnagePdf1(ExampleTonnageData, "mt", pdfType = "normal")
 #' pdfPT <- TonnagePdfPT(pmf, pdf1)
-#' getRandomSamplesPT(pdfPT)
+#' getRandomSamples(pdfPT)
 #'
 #' @export
 #'
-getRandomSamplesPT <- function(object) {
+getRandomSamples.TonnagePdfPT <- function(object) {
   return(object$rs)
 }
 
@@ -178,7 +178,9 @@ summary.TonnagePdfPT <- function(object, nDigits = 3) {
 
   }
 
-  cat(sprintf("\n\n"))
+  cat(sprintf("Summary of the pdf for the material tonnages in all\n"))
+  cat(sprintf("undiscovered deposits within the permissive tract.\n"))
+  cat(sprintf("------------------------------------------------------------\n"))
   cat( sprintf( "Units for material tonnage: %s\n", object$units ))
 
   theNames <- colnames( object$rs[, -1] )
@@ -197,11 +199,10 @@ summary.TonnagePdfPT <- function(object, nDigits = 3) {
 
   cat(sprintf("\n\n"))
   cat(sprintf("Explanation\n"))
-  cat(sprintf("\"Q_0.05\" is the 0.05 quantile, \"Q_0.1\" is the \n"))
-  cat(sprintf("0.1 quantile, and so on. \"Mean\" is the arithmetic mean.\n"))
-  cat(sprintf("\"P(0)\" is probability of zero tonnage. \"P(>Mean)\"\n"))
-  cat(sprintf("is probability that the tonnage exceeds the arithmetic \n"))
-  cat(sprintf("mean.\n"))
+  cat(sprintf("\"Q_0.05\" is the 0.05 quantile, \"Q_0.1\" is the 0.1 quantile, and so on.\n"))
+  cat(sprintf("\"Mean\" is the arithmetic mean. \"P(0)\" is probability of zero tonnage.\n"))
+  cat(sprintf("\"P(>Mean)\" is probability that the tonnage exceeds the arithmetic mean.\n"))
+  cat(sprintf("\n\n\n\n"))
 
 }
 
@@ -239,27 +240,28 @@ printChecks.TonnagePdfPT <- function(object, nDigits = 3) {
   cat( sprintf( "Units for material tonnage: %s\n", object$units ))
 
   cat( sprintf( "\n\n"))
-  cat( sprintf( "Mean vector for the pdf:\n" ))
+  cat( sprintf( "Mean vectors:\n" ))
   tmp <- cbind(object$theMean, object$predMean)
   colnames(tmp) <- c("Actual", "Predicted")
   print(signif(tmp, digits = nDigits))
 
   cat( sprintf( "\n\n"))
-  cat( sprintf( "Standard deviation vector for the pdf:\n" ))
+  cat( sprintf( "Standard deviation vectors:\n" ))
   tmp <- cbind(object$theSd, object$predSd)
   colnames(tmp) <- c("Actual", "Predicted")
   print(signif(tmp, digits = nDigits))
 
 
   cat(sprintf( "\n\n"))
-  cat(sprintf("Composite correlation matrix for the pdf\n" ))
-  cat(sprintf("The upper triangle is the upper triangle of the actual\n"))
-  cat(sprintf("correlation matrix. The lower triangle is the lower\n" ))
-  cat(sprintf("triangle of the predicted correlation matrix.\n"))
+  cat(sprintf("Composite correlation matrix\n" ))
   tmp <- object$theCor
   tmp[lower.tri(tmp)] <- object$predCor[lower.tri(object$predCor)]
   diag(tmp) <- NA
   print(signif(tmp, digits = nDigits))
+  cat(sprintf("\nExplanation\n" ))
+  cat(sprintf("The upper triangle is the upper triangle of the actual\n"))
+  cat(sprintf("correlation matrix. The lower triangle is the lower\n" ))
+  cat(sprintf("triangle of the predicted correlation matrix.\n"))
 
 }
 
@@ -343,7 +345,7 @@ TonnagePdfPT <- function(oPmf, oPdf, nRandomSamples = 20000) {
   # All of the random samples that are needed for the computations
   # It is done this way because repeated calls to getRandomSamples can
   # require a lot of time.
-  rs1 <- getRandomSamples1(oPdf, sum(nRs1))
+  rs1 <- getRandomSamples(oPdf, sum(nRs1))
 
   # Get a subset of rs1
   iStart <- 1

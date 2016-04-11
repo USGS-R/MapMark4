@@ -397,6 +397,9 @@ plot.NDepositsPmf <- function( object, isMeanPlotted = TRUE,
 #'
 summary.NDepositsPmf <- function( object) {
 
+  cat(sprintf("Summary of the pmf for the number of undiscovered deposits\n"))
+  cat(sprintf("within the permissive tract.\n"))
+  cat(sprintf("------------------------------------------------------------\n"))
   cat( sprintf( "Type: %s\n", object$type ))
   cat( sprintf( "Description: %s\n", object$description ))
   cat( sprintf( "Mean: %g\n", object$theMean ))
@@ -406,8 +409,11 @@ summary.NDepositsPmf <- function( object) {
                 sqrt(object$theVar)*100/object$themean ))
 
   cat( sprintf( "Mode: %d\n", object$nDeposits[which.max(object$probs)] ))
-  cat( sprintf( "Minimum: %d\n", min(object$nDeposits) ))
-  cat( sprintf( "Maximum: %d\n", max(object$nDeposits) ))
+  cat( sprintf( "Smallest number of deposits in the pmf: %d\n",
+                min(object$nDeposits) ))
+  cat( sprintf( "Largest number of deposits in the pmf: %d\n",
+                max(object$nDeposits) ))
+  cat(sprintf("\n\n\n\n"))
 
 }
 

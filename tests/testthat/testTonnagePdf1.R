@@ -15,14 +15,14 @@ test_that("Object is constructed properly",{
 })
 
 
-test_that("Statistics for pdf and observed data match, case 1",{
+test_that("Statistics for pdf and known material tonnages match, case 1",{
 
   # Case 1: One material, empirical distribution, truncation
   pdf1 <- TonnagePdf1(ExampleTonnageData, "mt")
 
   # number of random samples
   N <- 1000
-  rs <- getRandomSamples1(pdf1, 1000, seed = 7, log_rs = TRUE)
+  rs <- getRandomSamples(pdf1, 1000, seed = 7, log_rs = TRUE)
 
   # min
   rsMin <- apply(rs, 2, min)
@@ -44,7 +44,7 @@ test_that("Statistics for pdf and observed data match, case 1",{
   rsMean <- apply(rs, 2, mean)
   pdfMean <- apply(pdf1$logTonnages, 2, mean)
   pdfSd <- apply(pdf1$logTonnages, 2, sd)
-  N <- nrow(pdf1$obsTonnages)
+  N <- nrow(pdf1$knownTonnages)
   lb <- pdfMean - 5 * pdfSd  / sqrt(N)
   ub <- pdfMean + 5 * pdfSd  / sqrt(N)
   for(i in 1:length(rsMean)){
@@ -54,14 +54,14 @@ test_that("Statistics for pdf and observed data match, case 1",{
 
 })
 
-test_that("Statistics for pdf and observed data match, case 2",{
+test_that("Statistics for pdf and known material tonnages match, case 2",{
 
   # Case 2: One material, normal distribution, truncation
   pdf1 <- TonnagePdf1(ExampleTonnageData, "mt", pdfType = "normal")
 
   # number of random samples
   N <- 1000
-  rs <- getRandomSamples1(pdf1, 1000, seed = 7, log_rs = TRUE)
+  rs <- getRandomSamples(pdf1, 1000, seed = 7, log_rs = TRUE)
 
   # min
   rsMin <- apply(rs, 2, min)
@@ -92,14 +92,14 @@ test_that("Statistics for pdf and observed data match, case 2",{
 
 })
 
-test_that("Statistics for pdf and observed data match, case 3",{
+test_that("Statistics for pdf and known material tonnages match, case 3",{
 
   # Case 3: One material, empirical distribution, no truncation
   pdf1 <- TonnagePdf1(ExampleTonnageData, "mt", isTruncated = FALSE)
 
   # number of random samples
   N <- 1000
-  rs <- getRandomSamples1(pdf1, N, seed = 7, log_rs = TRUE)
+  rs <- getRandomSamples(pdf1, N, seed = 7, log_rs = TRUE)
 
   # mean
   # The bounds for the mean of the random samples are calculated with the
@@ -116,7 +116,7 @@ test_that("Statistics for pdf and observed data match, case 3",{
 
 })
 
-test_that("Statistics for pdf and observed data match, case 4",{
+test_that("Statistics for pdf and known material tonnages match, case 4",{
 
   # Case 4: One material, normal distribution, no truncation
   pdf1 <- TonnagePdf1(ExampleTonnageData, "mt", pdfType = "normal",
@@ -124,7 +124,7 @@ test_that("Statistics for pdf and observed data match, case 4",{
 
   # number of random samples
   N <- 1000
-  rs <- getRandomSamples1(pdf1, N, seed = 7, log_rs = TRUE)
+  rs <- getRandomSamples(pdf1, N, seed = 7, log_rs = TRUE)
 
   # Use the hypothesis test for the multivariate mean. The confidence level
   # is 0.99

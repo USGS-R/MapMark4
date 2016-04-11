@@ -40,7 +40,7 @@ getUnits <- function(object) {
 #' with the natural logarithm.
 #'
 #' @details
-#' To generate random samples, the observed material tonnages are
+#' To generate random samples, the known material tonnages are
 #' transformed with the natural logarithm.
 #' If the \code{type} is \code{empirical}, then
 #' a multivariate kernel density estimate
@@ -66,7 +66,7 @@ getUnits <- function(object) {
 #'
 #' Hastie, Tevor, Tibshirani, Robert, and Friedman, Jerome, 2009,
 #' The elements of statistical learning - Data mining, inference, and
-#' prediction, 2nd ed., Springer Science + Business Media, LLC, 745 p.
+#' prediction (2nd ed.): New York, Springer Science + Business Media, LLC, 745 p.
 #'
 #' Shalizi, C.R., 2016, Advanced data analysis from an elementary point of
 #' view: Draft book manuscript publicly available at
@@ -74,11 +74,11 @@ getUnits <- function(object) {
 #'
 #' @examples
 #' pdf1 <- TonnagePdf1(ExampleTonnageData, "mt")
-#' rs <- getRandomSamples1(pdf1, 2518)
+#' rs <- getRandomSamples(pdf1, 2518)
 #'
 #' @export
 #'
-getRandomSamples1 <- function(object, nSamples, seed = NULL, log_rs = FALSE) {
+getRandomSamples.TonnagePdf1 <- function(object, nSamples, seed = NULL, log_rs = FALSE) {
 
   # The number of random samples that are generated is 2 * nSamples because,
   # if the random samples are truncated, then there will be enough remaining
@@ -150,14 +150,10 @@ getRandomSamples1 <- function(object, nSamples, seed = NULL, log_rs = FALSE) {
 #' for the material tonnages in a single, undiscovered deposit within the
 #' permissive tract. Overlaid on the plot is the
 #' empirical cumulative distribution function (ecdf)
-#' for the observed material tonnages.
+#' for the known material tonnages.
 #'
 #' @param object
 #' An object of class "TonnagePdf1".
-#'
-#' @param whichMatTonnage
-#' Character vector comprising the names of the materials that will be included
-#' in the plot.
 #'
 #' @param isUsgsStyle
 #' Make the plot format similar to the U.S. Geological Survey style
@@ -170,6 +166,11 @@ getRandomSamples1 <- function(object, nSamples, seed = NULL, log_rs = FALSE) {
 #' In the plot, the solid line(s) represent the cdf, and the dots represent
 #' the ecdf.
 #'
+#' If there is only one material tonnage, the deviance, which measures the
+#' misfit between the known material tonanges and the pdf, is printed at the
+#' at the top. If there are two or more material tonnages, then the sum
+#' of the deviances for each material tonnage is printed.
+#'
 #' @examples
 #' pdf1 <- TonnagePdf1(ExampleTonnageData, "mt")
 #' plot(pdf1)
@@ -177,36 +178,34 @@ getRandomSamples1 <- function(object, nSamples, seed = NULL, log_rs = FALSE) {
 #' @export
 #'
 plot.TonnagePdf1 <- function(object,
-                             whichMatTonnage = object$matNames,
                              isUsgsStyle = TRUE) {
 
-  for(i in 1:length(whichMatTonnage)) {
-    if(!any(whichMatTonnage[i] == object$matNames)) {
-      stop( sprintf( "Function plot.TonnagePdf1\n" ),
-            sprintf( "Argument whichMatTonnage must match one of the.\n" ),
-            sprintf( "materials. The mismatched name is %s\n",
-                     whichMatTonnage[i]),
-            call. = FALSE )
-    }
-  }
-
-  df.rs <- reshape2::melt(object$rs[, whichMatTonnage, drop = FALSE])
+  df.rs <- reshape2::melt(object$rs)
   # After the melt operation, the first column is row number. It is
   # useless here, so it is removed.
   df.rs <- df.rs[, -1, drop = FALSE]
   colnames(df.rs) <- c("Material", "Tonnage")
 
-  df.obs <- reshape2::melt(object$obsTonnages[, whichMatTonnage, drop = FALSE])
+  df.obs <- reshape2::melt(object$knownTonnages[, -1, drop = FALSE])
   colnames(df.obs) <- c("Material", "Tonnage")
 
   xLabel <- paste("Tonnage (", object$units, ")", sep = "")
+
+  if(ncol(object$rs) == 1){
+    title <- paste("Deviance = ",
+                   signif(object$sumDeviance, digits = 3), sep = "")
+  } else {
+    title <- paste("Sum of the deviances = ",
+                   signif(object$sumDeviance, digits = 3), sep = "")
+  }
 
   p <- ggplot2::ggplot(df.rs) +
     ggplot2::stat_ecdf(ggplot2::aes(Tonnage, colour = Material)) +
     ggplot2::stat_ecdf(ggplot2::aes(Tonnage, colour = Material),
                        data = df.obs, geom = "point") +
     ggplot2::scale_x_continuous(name = xLabel, trans = "log10") +
-    ggplot2::ylab("Probability")
+    ggplot2::ylab("Probability") +
+    ggplot2::ggtitle(title)
 
   if(isUsgsStyle)
     p <- p + ggplot2::xlab(paste("Tonnage, in ", object$units, sep = "")) +
@@ -229,6 +228,13 @@ plot.TonnagePdf1 <- function(object,
 #' @param nDigits
 #' Number of signficant digits.
 #'
+#' @details
+#' It is common that the summary statistics for the known material
+#' tonnages differ somewhat from the summary statistics for the pdf, especially
+#' when the pdf is truncated. The reason for the difference is that tonnages
+#' typically have an enormous range, making the summary statistics somewhat
+#' non-robust.
+#'
 #' @examples
 #' pdf1 <- TonnagePdf1(ExampleTonnageData, "mt")
 #' summary(pdf1)
@@ -237,20 +243,44 @@ plot.TonnagePdf1 <- function(object,
 #'
 summary.TonnagePdf1 <- function(object, nDigits = 2) {
 
+  cat(sprintf("Summary of the pdf for the material tonnages in a single,\n"))
+  cat(sprintf("undiscovered deposit within the permissive tract.\n"))
+  cat(sprintf("------------------------------------------------------------\n"))
   cat( sprintf( "Units for material tonnage: %s\n", object$units ))
   cat( sprintf( "Pdf type: %s\n", object$pdfType ))
   if(object$isTruncated) {
-    cat( sprintf("Pdf is truncated at the lowest and "))
-    cat( sprintf("highest values of the observed material tonnages.\n"))
+    cat( sprintf("Pdf is truncated at the lowest and the highest values\n"))
+    cat( sprintf("of the material tonnages in the discovered deposits.\n"))
   } else {
     cat( sprintf("Pdf is not truncated.\n"))
   }
-  cat( sprintf( "Number of observed deposits: %d\n", nrow(object$obsTonnages) ))
+  cat( sprintf( "Number of discovered deposits: %d\n", nrow(object$knownTonnages) ))
   cat( sprintf( "Number of materials: %d\n", length(object$matNames) ))
-  cat( sprintf( "Materials: \n" ))
+  cat( sprintf( "Materials: " ))
   for(i in 1:length(object$matNames)) {
     cat( sprintf( "%s    ", object$matNames[i] ))
   }
+  cat( sprintf( "\n" ))
+
+  if(length(object$matNames) == 1) {
+    cat(sprintf("Deviance = %g\n", object$sumDeviance))
+  } else {
+    cat(sprintf("Sum of deviances = %g\n", object$sumDeviance))
+  }
+
+  cat( sprintf( "\n\n"))
+  cat( sprintf( "Summary statistics for the material tonnages (discovered deposits):\n" ))
+  print(summary(object$knownTonnages[, -1]))
+  cat( sprintf( "\n"))
+  cat( sprintf( "Summary statistics for the pdf:\n" ))
+  print(summary(object$rs))
+
+  cat(sprintf("\n\n"))
+  cat(sprintf("Explanation\n"))
+  cat(sprintf("\"1st Qu.\" refers to the first quartile.\n"))
+  cat(sprintf("\"3rd Qu.\" refers to the third quartile.\n"))
+  cat(sprintf("\n\n\n\n"))
+
 
 }
 
@@ -262,7 +292,7 @@ summary.TonnagePdf1 <- function(object, nDigits = 2) {
 #' probability density function (pdf) for the
 #' material tonnages in a single, undiscovered deposit within the permissive
 #' tract. Summary statistics are calculated for both
-#' the observed material tonnages and the pdf that represents those tonnages.
+#' the known material tonnages and the pdf that represents those tonnages.
 #'
 #' @param object
 #' An object of class "TonnagePdf1"
@@ -271,13 +301,13 @@ summary.TonnagePdf1 <- function(object, nDigits = 2) {
 #' Number of signficant digits.
 #'
 #' @details
-#' The summary statistics for the pdf are calculated from
+#' The statistics for the pdf are calculated from
 #' random samples of that pdf.
 #'
-#' It is common that the summary statistics for the observed material
-#' tonnages differ somewhat from the summary statistics for the pdf, especially
+#' It is common that the statistics for the known material
+#' tonnages differ somewhat from the statistics for the pdf, especially
 #' when the pdf is truncated. The reason for the difference is that tonnages
-#' typically have an enormous range, making the summary statistics somewhat
+#' typically have an enormous range, making the statistics somewhat
 #' non-robust.
 #'
 #' @examples
@@ -289,34 +319,31 @@ summary.TonnagePdf1 <- function(object, nDigits = 2) {
 printChecks.TonnagePdf1 <- function(object, nDigits = 3) {
 
   cat( sprintf( "\n\n"))
-  cat( sprintf( "Summary statistics for the observed material tonnages:\n" ))
-  print(summary(object$obsTonnages[, -1]))
-  cat( sprintf( "\n"))
-  cat( sprintf( "Summary statistics for the pdf:\n" ))
-  print(summary(object$rs))
-
-  cat( sprintf( "\n\n"))
-  cat( sprintf( "Mean vector:\n" ))
-  tmp <- cbind(object$theObsMean, object$theMean)
-  colnames(tmp) <- c("Observed", "Pdf")
+  cat( sprintf( "Mean vectors for material tonnages:\n" ))
+  tmp <- cbind(object$theKnownMean, object$theMean)
+  colnames(tmp) <- c("Discovered", "Pdf")
   print(signif(tmp, digits = nDigits))
 
   cat( sprintf( "\n\n"))
-  cat( sprintf( "Standard deviation vector:\n" ))
-  tmp <- cbind(object$theObsSd, object$theSd)
-  colnames(tmp) <- c("Observed", "Pdf")
+  cat( sprintf( "Standard deviation vectors for material tonnages:\n" ))
+  tmp <- cbind(object$theKnownSd, object$theSd)
+  colnames(tmp) <- c("Discovered", "Pdf")
   print(signif(tmp, digits = nDigits))
 
   cat(sprintf( "\n\n"))
   cat(sprintf("Composite correlation matrix\n" ))
-  cat(sprintf("The upper triangle is the upper triangle of the\n"))
-  cat(sprintf("correlation matrix for the observed tonnages.\n"))
-  cat(sprintf("The lower triangle is the lower triangle of the\n" ))
-  cat(sprintf("correlation matrix for the pdf.\n"))
-  tmp <- object$theObsCor
+  tmp <- object$theKnownCor
   tmp[lower.tri(tmp)] <- object$theCor[lower.tri(object$theCor)]
   diag(tmp) <- NA
   print(signif(tmp, digits = nDigits))
+  cat(sprintf("\nExplanation\n" ))
+  cat(sprintf("The upper triangle is the upper triangle of the\n"))
+  cat(sprintf("correlation matrix for the material tonnages.\n"))
+  cat(sprintf("from the discovered deposits.\n"))
+  cat(sprintf("The lower triangle is the lower triangle of the\n" ))
+  cat(sprintf("correlation matrix for the material tonnages\n"))
+  cat(sprintf("that are represented by the pdf.\n"))
+
 
 }
 
@@ -329,8 +356,8 @@ printChecks.TonnagePdf1 <- function(object, nDigits = 3) {
 #' tract. The pdf is not explicitly specified; instead it is implicitly
 #' specified with the random samples that are generated from it.
 #'
-#' @param obsTonnages
-#' Dataframe containing the observed material tonnages. (See details.)
+#' @param knownTonnages
+#' Dataframe containing the known material tonnages. (See details.)
 #'
 #' @param units
 #' Character string containing units for the material tonnages.
@@ -342,10 +369,10 @@ printChecks.TonnagePdf1 <- function(object, nDigits = 3) {
 #'
 #' @param isTruncated
 #' Logical variable indicating whether the pdf is
-#' truncated at the lowest and highest values of the observed material tonnages.
+#' truncated at the lowest and highest values of the known material tonnages.
 #'
 #' @param minNDeposits
-#' Minimum number of deposits with observed material tonnages.
+#' Minimum number of deposits with known material tonnages.
 #'
 #' @param nRandomSamples
 #' Number of random samples used to compute summary statistics and the
@@ -355,88 +382,116 @@ printChecks.TonnagePdf1 <- function(object, nDigits = 3) {
 #' Seed for the random number generator.
 #'
 #' @details
-#' Dataframe obsTonnages comprises the material tonnages for the known
-#' deposits. Each row comprise the data for one deposit. Each column comprises
-#' a particular aspect of the data. The first column always lists the names
-#' of the deposits. The name of the first column is always "Name".
+#' Data frame knownTonnages comprises the material tonnages for the known
+#' deposits. Each row comprises the data for one deposit.
+#' The first column lists the names of the deposits.
 #' The second column and subsequent columns, if any, list
-#' the tonnages for each type of material. For example, if there is only
-#' one material (which would correspond to only one resource), then its
-#' tonnages would be listed in the second column. The name of this column
-#' is the name of the resource. For example, it might be "Sand".
-#' If there are two materials
-#' (which might correspond to ore and a resource), then the ore tonnages would
-#' be listed in the second column and the resource tonnages in the third
-#' column. Again, the names of the second and third columns are the names of the
-#' materials. For example, they might be "Ore" and "Copper".
-#' If there are three or more materials, then the format of the
-#' dataframe is similar.
-#'
-#' All material tonnages in the dataframe must be greater than zero and
+#' the tonnages for each type of material.
+#' All material tonnages in the data frame must be greater than zero and
 #' must not be missing.
-#'
 #' The minimum number of
-#' deposits (that is, rows in the dataframe) should be greater than or
+#' deposits (that is, rows in the data frame) should be greater than or
 #' equal to 20.
+#'
+#' The columns of the data frame have headings. The heading for the
+#' first column is "Name" or "Deposit name".
+#' The headings for the second column and subsequent columns, if any, are the
+#' names of the materials. For example, they might be "Ore" and "Cu".
+#' The headings for the second and subsequent columns are important because
+#' they are used in plots and tables.
+#'
+#' The misfit between the known material tonnages and the pdf that represents
+#' those material tonnages is quantified with the deviance (McElreath, 2016,
+#' p. 177-182). If there are two or more material tonnages, then the deviance is
+#' calculated for each material tonnage and the individual deviances are summed.
+#' Smaller values of the deviance indicate a better fit.
 #'
 #' @return If the input arguments have an error, the R-value NULL is returned.
 #' Otherwise, a list with the following components is returned.
-#' @return \item{obsTonnages}{Input argument obsTonnages.}
+#' @return \item{knownTonnages}{Input argument knownTonnages.}
 #' @return \item{units}{Input argument units}
 #' @return \item{pdfType}{Input argument pdfType.}
 #' @return \item{isTruncated}{Input argument isTruncated.}
 #' @return \item{matNames}{Names of the materials.}
 #' @return \item{logTonnages}{Matrix with the natural logarithm
-#' transformation of the observed material tonnages.}
-#' @return \item{theObsMean}{Mean vector for the observed tonnages.}
-#' @return \item{theObsCov}{Covariance matrix for the observed tonnages.}
-#' @return \item{theObsSd}{Standard deviation vector for the observed tonnages.}
-#' @return \item{theObsCor}{Correlation matrix for the observed tonnages.}
+#' transformation of the known material tonnages.}
+#' @return \item{theKnownMean}{Mean vector for the known tonnages.}
+#' @return \item{theKnownCov}{Covariance matrix for the known tonnages.}
+#' @return \item{theKnownSd}{Standard deviation vector for the known tonnages.}
+#' @return \item{theKnownCor}{Correlation matrix for the known tonnages.}
 #' @return \item{rs}{Random samples of the pdf.}
 #' @return \item{theMean}{Mean vector for the pdf.}
 #' @return \item{theCov}{Covariance matrix for the pdf.}
 #' @return \item{theSd}{Standard deviation vector for the pdf.}
 #' @return \item{theCor}{Correlation matrix for the pdf.}
+#' @return \item{sumDeviance}{Sum of the deviances measuring the relative fit of
+#' the pdf.}
 #' @return \item{call}{Function call.}
+#'
+#' @references
+#' McElreath, Richard, 2016, Statistical rethinking - A Bayesian course
+#' with examples in R and Stan: New York, CRC Press, 469 p.
 #'
 #' @examples
 #' pdf1 <- TonnagePdf1(ExampleTonnageData, "mt")
 #'
 #' @export
 #'
-TonnagePdf1 <- function(obsTonnages,
+TonnagePdf1 <- function(knownTonnages,
                         units,
                         pdfType = "empirical",
                         isTruncated = TRUE,
                         minNDeposits = 20,
                         nRandomSamples = 20000, seed = 7) {
 
-  if(ncol(obsTonnages) < 2) {
+  CalcSumDeviance <- function(rsPdf, rsData, nBins = 30) {
+
+    logRsPdf <- log(rsPdf)
+    logRsData <- log(rsData)
+
+    N <- ncol(logRsPdf)
+    deviance <- 0
+    for(i in 1:N) {
+      theBreaks <- seq(from = min(logRsData[, i], logRsPdf[, i]),
+                       to = max(logRsData[, i], logRsPdf[, i]),
+                       length.out = nBins)
+
+      tmpPdf <- hist(logRsPdf[, i], breaks = theBreaks, plot = FALSE)
+
+      tmpData <- hist(logRsData[, i], breaks = theBreaks, plot = FALSE)
+
+      deviance <- deviance - 2 * sum(tmpPdf$density * tmpData$counts)
+    }
+
+    return(deviance)
+  }
+
+  if(ncol(knownTonnages) < 2) {
     stop( sprintf( "Function TonnagePdf1\n" ),
-          sprintf( "The number of columns in dataframe obsTonnage must be.\n" ),
+          sprintf( "The number of columns in dataframe knownTonnage must be.\n" ),
           sprintf( "greater than or equal to 2.\n" ),
           sprintf( "But the actual number is 1.\n" ),
           call. = FALSE )
 
   }
-  if(nrow(obsTonnages) < minNDeposits) {
+  if(nrow(knownTonnages) < minNDeposits) {
     stop( sprintf( "Function TonnagePdf1\n" ),
-          sprintf( "The number of rows in dataframe obsTonnage must be.\n" ),
+          sprintf( "The number of rows in dataframe knownTonnage must be.\n" ),
           sprintf( "greater than or equal to %d.\n", minNDeposits ),
-          sprintf( "But the actual number is %d.\n", nrow(obsTonnages) ),
+          sprintf( "But the actual number is %d.\n", nrow(knownTonnages) ),
           call. = FALSE )
   }
 
-  for(j in 2:ncol(obsTonnages)){
-    if(any(is.na(obsTonnages[, j]))) {
+  for(j in 2:ncol(knownTonnages)){
+    if(any(is.na(knownTonnages[, j]))) {
       stop( sprintf( "Function TonnagePdf1\n" ),
-            sprintf( "Column %d of dataframe obsTonnage has\n", j ),
+            sprintf( "Column %d of dataframe knownTonnage has\n", j ),
             sprintf( "one or more missing values\n"),
             call. = FALSE )
     }
-    if(any(obsTonnages[, j] <= 0.0)) {
+    if(any(knownTonnages[, j] <= 0.0)) {
       stop( sprintf( "Function TonnagePdf1\n" ),
-            sprintf( "Column %d of dataframe obsTonnage has\n", j ),
+            sprintf( "Column %d of dataframe knownTonnage has\n", j ),
             sprintf( "one or more zero values\n"),
             call. = FALSE )
     }
@@ -449,29 +504,31 @@ TonnagePdf1 <- function(obsTonnages,
           call. = FALSE )
   }
 
-  theObsMean <- colMeans(obsTonnages[, -1])
-  theObsCov <- cov(obsTonnages[, -1])
-  theObsSd <- sqrt(diag(theObsCov))
-  theObsCor <- cov2cor(theObsCov)
+  theKnownMean <- colMeans(knownTonnages[, -1])
+  theKnownCov <- cov(knownTonnages[, -1])
+  theKnownSd <- sqrt(diag(theKnownCov))
+  theKnownCor <- cov2cor(theKnownCov)
 
-  rval <- list( obsTonnages = obsTonnages,
+  rval <- list( knownTonnages = knownTonnages,
                 units = units,
                 pdfType = pdfType,
                 isTruncated = isTruncated,
-                matNames = colnames(obsTonnages)[-1],
-                logTonnages = as.matrix(log(obsTonnages[, -1])),
-                theObsMean = theObsMean,
-                theObsCov = theObsCov,
-                theObsSd = theObsSd,
-                theObsCor = theObsCor)
+                matNames = colnames(knownTonnages)[-1],
+                logTonnages = as.matrix(log(knownTonnages[, -1])),
+                theKnownMean = theKnownMean,
+                theKnownCov = theKnownCov,
+                theKnownSd = theKnownSd,
+                theKnownCor = theKnownCor)
 
-  rval$rs <- getRandomSamples1(rval, nRandomSamples, seed = seed)
+  class(rval) <- "TonnagePdf1"
+
+  rval$rs <- getRandomSamples(rval, nRandomSamples, seed = seed)
   rval$theMean <- colMeans(rval$rs)
   rval$theCov <- cov(rval$rs)
   rval$theSd <- sqrt(diag(rval$theCov))
   rval$theCor <- cov2cor(rval$theCov)
+  rval$sumDeviance <- CalcSumDeviance(rval$rs, rval$knownTonnages[, -1])
   rval$call <- sys.call()
 
-  class(rval) <- "TonnagePdf1"
   return(rval)
 }
