@@ -1,5 +1,3 @@
-
-
 # The function argument(s) is (are) defined in the documentation for
 # function NDepositsPmf.
 #
@@ -290,10 +288,10 @@ CalcDebugPmf <- function( nDeposits, relProbabilities ) {
 
 }
 
-#' @title Plot the pmf for the number of undiscovered deposits
+#' @title Plot the pmf for the number of potential deposits
 #'
 #' @description Plots the probability mass function (pmf) for the number of
-#' undiscovered deposits in the permissive tract. If the type is Mark3 or Mark4,
+#' potential deposits in the permissive tract. If the type is Mark3 or Mark4,
 #' then the alternative complementary cumulative distribution function
 #' is plotted too.
 #'
@@ -305,7 +303,7 @@ CalcDebugPmf <- function( nDeposits, relProbabilities ) {
 #'
 #' @param barWidth
 #' Width of the bars, which represent the probabilities for the numbers of
-#' undiscovered deposits.
+#' potential deposits.
 #'
 #' @param isUsgsStyle
 #' Make the plot format similar to the U.S. Geological Survey style
@@ -341,7 +339,7 @@ plot.NDepositsPmf <- function( object, isMeanPlotted = TRUE,
   p <- ggplot2::ggplot(df) +
     ggplot2::geom_bar(ggplot2::aes(x = nDeposits, y = probs),
                       stat = "identity", width = barwidth) +
-    ggplot2::scale_x_continuous("Number of undiscovered deposits",
+    ggplot2::scale_x_continuous("Number of potential deposits",
                                 limits = range(df$nDeposits)+c(-1,1)) +
     ggplot2::ylab("Probability")
 
@@ -363,7 +361,7 @@ plot.NDepositsPmf <- function( object, isMeanPlotted = TRUE,
                           data = df3, colour = "red", size = 4) +
       ggplot2::geom_point(ggplot2::aes(x = nDeposits, y = accdf)) +
       ggplot2::ylim(0,1) +
-      ggplot2::xlab("Number of undiscovered deposits") +
+      ggplot2::xlab("Number of potential deposits") +
       ggplot2::ylab("Probability")
 
     if(isUsgsStyle)
@@ -381,10 +379,10 @@ plot.NDepositsPmf <- function( object, isMeanPlotted = TRUE,
 }
 
 
-#' @title Summarize the pmf for the number of undiscovered deposits
+#' @title Summarize the pmf for the number of potential deposits
 #'
 #' @description Summarize the probability mass function (pmf) for
-#' the number of undiscovered deposits in the permissive tract.
+#' the number of potential deposits in the permissive tract.
 #'
 #' @param object
 #' An object of class "NDepositsPmf"
@@ -397,7 +395,7 @@ plot.NDepositsPmf <- function( object, isMeanPlotted = TRUE,
 #'
 summary.NDepositsPmf <- function( object) {
 
-  cat(sprintf("Summary of the pmf for the number of undiscovered deposits\n"))
+  cat(sprintf("Summary of the pmf for the number of potential deposits\n"))
   cat(sprintf("within the permissive tract.\n"))
   cat(sprintf("------------------------------------------------------------\n"))
   cat( sprintf( "Type: %s\n", object$type ))
@@ -417,10 +415,10 @@ summary.NDepositsPmf <- function( object) {
 
 }
 
-#' @title Get the pmf for the number of undiscovered deposits
+#' @title Get the pmf for the number of potential deposits
 #'
 #' @description Get the probability mass function (pmf)
-#' for the number of undiscovered deposits in the permissive tract.
+#' for the number of potential deposits in the permissive tract.
 #'
 #' @param object
 #' An object of class "NDepositsPmf"
@@ -442,10 +440,10 @@ getNDepositPmf <- function(object) {
 
 
 
-#' @title Construct the pmf for the number of undiscovered deposits
+#' @title Construct the pmf for the number of potential deposits
 #'
 #' @description Construct the probability mass function (pmf) for the number of
-#' undiscovered deposits within the permissive tract
+#' potential deposits within the permissive tract
 #'
 #' @param type
 #' Character string with the type of pmf (See Details).
@@ -575,7 +573,7 @@ getNDepositPmf <- function(object) {
 #' real-valued and is the mean of the Poisson pmf.
 #'
 #' For the Poisson pmf, the random variable that represents the number of
-#' undiscovered deposits extends from 0 to infinity. Of course, the Monte Carlo
+#' potential deposits extends from 0 to infinity. Of course, the Monte Carlo
 #' simulation cannot be performed for an infinite range. When the number of
 #' deposits is far from the mean, the probabilities are so small
 #' that they have no practical effect on the simulation results.
@@ -606,7 +604,7 @@ getNDepositPmf <- function(object) {
 #'
 #' For the negative binomial pmf, the random variable that represents the
 #' number of
-#' undiscovered deposits extends from 0 to infinity. Of course, the Monte Carlo
+#' potential deposits extends from 0 to infinity. Of course, the Monte Carlo
 #' simulation cannot be performed for an infinity range. The procedure that
 #' solves for this problem is described in section for the Poisson pmf.
 #'
@@ -640,7 +638,7 @@ getNDepositPmf <- function(object) {
 #' @return \item{call}{Function call}
 #' @return \item{probs}{Vector containing just the non-zero probabilities
 #' in the pmf.}
-#' @return \item{nDeposits}{Vector containing the number of undiscovered
+#' @return \item{nDeposits}{Vector containing the number of potential
 #' deposits that are associated with the non-zero probabilities in the pmf.
 #' The size of vector nDeposits is equal to the size of vector probs.}
 #' @return \item{specifiedAccdf}{If the type is "Mark3" or "Mark4", then
@@ -649,9 +647,9 @@ getNDepositPmf <- function(object) {
 #' associated with the thresholds, which are specified in pmf.arg. Otherwise,
 #' this entry is NULL.}
 #' @return \item{theMean}{The expected value (mean) of the number of
-#' undiscovered deposits within the permissive tract. The number might differ
+#' potential deposits within the permissive tract. The number might differ
 #' slightly from the input specification.}
-#' @return \item{theVar}{The variance of the number of undiscovered deposits
+#' @return \item{theVar}{The variance of the number of potential deposits
 #' within the permissive tract.}
 #' @return \item{accdf}{The alternative complementary cumulative distribution
 #' function for the pmf. Although it is calculated for all types of pmfs,

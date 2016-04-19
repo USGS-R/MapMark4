@@ -18,12 +18,12 @@ getUnits <- function(object) {
   return(object$units)
 }
 
-#' @title Get random samples from the pdf for material tonnages in a
-#' single, undiscovered deposit
+#' @title Get random samples from the pdf for material tonnages in one
+#' potential deposit
 #'
 #' @description Get random samples from the probability density function (pdf)
 #' for the
-#' material tonnages in a single, undiscovered deposit within the permissive
+#' material tonnages in one potential deposit within the permissive
 #' tract.
 #'
 #' @param object
@@ -56,7 +56,7 @@ getUnits <- function(object) {
 #' material tonnage with exponentiation.
 #'
 #' @return Matrix containing random samples from the pdf for the
-#' material tonnages for a single, undiscovered deposit in the permissive
+#' material tonnages for one potential deposit in the permissive
 #' tract.
 #'
 #' @references
@@ -143,11 +143,11 @@ getRandomSamples.TonnagePdf1 <- function(object, nSamples, seed = NULL, log_rs =
 }
 
 #' @title Plot the univariate, marginal cdfs for the material tonnages
-#' in a single, undiscovered deposit
+#' in one potential deposit
 #'
 #' @description Plot the univariate, marginal cumulative distribution
 #' functions (cdfs)
-#' for the material tonnages in a single, undiscovered deposit within the
+#' for the material tonnages in one potential deposit within the
 #' permissive tract. Overlaid on the plot is the
 #' empirical cumulative distribution function (ecdf)
 #' for the known material tonnages.
@@ -180,7 +180,16 @@ getRandomSamples.TonnagePdf1 <- function(object, nSamples, seed = NULL, log_rs =
 plot.TonnagePdf1 <- function(object,
                              isUsgsStyle = TRUE) {
 
-  df.rs <- reshape2::melt(object$rs)
+  # If there are too many random samples, subset them. The change
+  # the data structure
+  n <- nrow(object$rs)
+  if(n > 5000) {
+    indices <- sample.int(n, size = 5000)
+    df.rs <- reshape2::melt(object$rs[indices, ])
+  } else {
+    df.rs <- reshape2::melt(object$rs)
+  }
+
   # After the melt operation, the first column is row number. It is
   # useless here, so it is removed.
   df.rs <- df.rs[, -1, drop = FALSE]
@@ -189,37 +198,47 @@ plot.TonnagePdf1 <- function(object,
   df.obs <- reshape2::melt(object$knownTonnages[, -1, drop = FALSE])
   colnames(df.obs) <- c("Material", "Tonnage")
 
-  xLabel <- paste("Tonnage (", object$units, ")", sep = "")
+  if(isUsgsStyle) {
+    xLabel <- paste("Tonnage, in ", object$units, sep = "")
+  } else {
+    xLabel <- paste("Tonnage (", object$units, ")", sep = "")
+  }
 
   if(ncol(object$rs) == 1){
-    title <- paste("Deviance = ",
+    caption <- paste("Deviance = ",
                    signif(object$sumDeviance, digits = 3), sep = "")
   } else {
-    title <- paste("Sum of the deviances = ",
+    caption <- paste("Sum of the deviances = ",
                    signif(object$sumDeviance, digits = 3), sep = "")
   }
 
   p <- ggplot2::ggplot(df.rs) +
-    ggplot2::stat_ecdf(ggplot2::aes(Tonnage, colour = Material)) +
+    ggplot2::stat_ecdf(ggplot2::aes(Tonnage, colour = Material),
+                       pad = FALSE, geom = "step") +
     ggplot2::stat_ecdf(ggplot2::aes(Tonnage, colour = Material),
                        data = df.obs, geom = "point") +
     ggplot2::scale_x_continuous(name = xLabel, trans = "log10") +
     ggplot2::ylab("Probability") +
+    ggplot2::geom_text(aes(x, y, label = caption),
+                       data = data.frame(x = max(df.rs$Tonnage), y = 0),
+                       hjust = 1, vjust = 1)
+
+
     ggplot2::ggtitle(title)
 
-  if(isUsgsStyle)
-    p <- p + ggplot2::xlab(paste("Tonnage, in ", object$units, sep = "")) +
-    ggplot2::theme_bw()
+  if(isUsgsStyle) {
+    p <- p + ggplot2::theme_bw()
+  }
 
   plot(p)
 
 }
 
-#' @title Summarize the pdf for the material tonnages in a single, undiscovered
+#' @title Summarize the pdf for the material tonnages in one potential
 #' deposit
 #'
 #' @description Summarize the probability density function (pdf) for the
-#' material tonnages in a single, undiscovered deposit within the permissive
+#' material tonnages in one potential deposit within the permissive
 #' tract.
 #'
 #' @param object
@@ -243,8 +262,8 @@ plot.TonnagePdf1 <- function(object,
 #'
 summary.TonnagePdf1 <- function(object, nDigits = 2) {
 
-  cat(sprintf("Summary of the pdf for the material tonnages in a single,\n"))
-  cat(sprintf("undiscovered deposit within the permissive tract.\n"))
+  cat(sprintf("Summary of the pdf for the material tonnages in one\n"))
+  cat(sprintf("potential deposit within the permissive tract.\n"))
   cat(sprintf("------------------------------------------------------------\n"))
   cat( sprintf( "Units for material tonnage: %s\n", object$units ))
   cat( sprintf( "Pdf type: %s\n", object$pdfType ))
@@ -285,12 +304,12 @@ summary.TonnagePdf1 <- function(object, nDigits = 2) {
 }
 
 #' @title Print checks of the
-#' pdf for the material tonnages in a single, undiscovered
+#' pdf for the material tonnages in one potential
 #' deposit
 #'
 #' @description Print checks of the
 #' probability density function (pdf) for the
-#' material tonnages in a single, undiscovered deposit within the permissive
+#' material tonnages in one potential deposit within the permissive
 #' tract. Summary statistics are calculated for both
 #' the known material tonnages and the pdf that represents those tonnages.
 #'
@@ -348,11 +367,11 @@ printChecks.TonnagePdf1 <- function(object, nDigits = 3) {
 }
 
 
-#' @title Construct the pdf for the material tonnages in a single,
-#' undiscovered deposit
+#' @title Construct the pdf for the material tonnages in one
+#' potential deposit
 #'
 #' @description Construct the probability density function (pdf) for the
-#' material tonnages in a single, undiscovered deposit within the permissive
+#' material tonnages in one potential deposit within the permissive
 #' tract. The pdf is not explicitly specified; instead it is implicitly
 #' specified with the random samples that are generated from it.
 #'
@@ -376,7 +395,8 @@ printChecks.TonnagePdf1 <- function(object, nDigits = 3) {
 #'
 #' @param nRandomSamples
 #' Number of random samples used to compute summary statistics and the
-#' marginal cumulative distribution functions.
+#' marginal cumulative distribution functions. It should be a large value
+#' to ensure that the summary statistics are precise.
 #'
 #' @param seed
 #' Seed for the random number generator.
@@ -399,6 +419,18 @@ printChecks.TonnagePdf1 <- function(object, nDigits = 3) {
 #' names of the materials. For example, they might be "Ore" and "Cu".
 #' The headings for the second and subsequent columns are important because
 #' they are used in plots and tables.
+#'
+#' If the \code{pdfType} is \code{empirical}, then
+#' a multivariate kernel density estimate
+#' of the log-transformed, known tonnages is used to
+#' generate log-transformed random samples
+#' (Duong, 2007; Hastie and others, 2009, p. 208-209;
+#' Shalizi, 2016, p. 308-330).
+#' In contrast, if the \code{pdfType} is \code{normal},
+#' then a multivariate normal distribution is used to generate
+#' log-transformed random samples. For both cases,
+#' the log-transformed random samples are converted to random samples of
+#' material tonnage with exponentiation.
 #'
 #' The misfit between the known material tonnages and the pdf that represents
 #' those material tonnages is quantified with the deviance (McElreath, 2016,
@@ -429,8 +461,20 @@ printChecks.TonnagePdf1 <- function(object, nDigits = 3) {
 #' @return \item{call}{Function call.}
 #'
 #' @references
+#' Duong, Tarn, 2007, ks - Kernel density estimation and kernel discriminant
+#' analysis for multivariate data in R: Journal of Statistical Software,
+#' v. 21, issue 7, \url{http://www.jstatsoft.org/}
+#'
+#' Hastie, Tevor, Tibshirani, Robert, and Friedman, Jerome, 2009,
+#' The elements of statistical learning - Data mining, inference, and
+#' prediction (2nd ed.): New York, Springer Science + Business Media, LLC, 745 p.
+#'
 #' McElreath, Richard, 2016, Statistical rethinking - A Bayesian course
 #' with examples in R and Stan: New York, CRC Press, 469 p.
+#'
+#' Shalizi, C.R., 2016, Advanced data analysis from an elementary point of
+#' view: Draft book manuscript publicly available at
+#' \url{http://www.stat.cmu.edu/~cshalizi/ADAfaEPoV/}
 #'
 #' @examples
 #' pdf1 <- TonnagePdf1(ExampleTonnageData, "mt")
@@ -442,7 +486,7 @@ TonnagePdf1 <- function(knownTonnages,
                         pdfType = "empirical",
                         isTruncated = TRUE,
                         minNDeposits = 20,
-                        nRandomSamples = 20000, seed = 7) {
+                        nRandomSamples = 100000, seed = 7) {
 
   CalcSumDeviance <- function(rsPdf, rsData, nBins = 30) {
 

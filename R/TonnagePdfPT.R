@@ -1,9 +1,9 @@
 #' @title Get random samples from the pdf for the
 #' material tonnages in
-#' all undiscovered deposits within the permissive tract
+#' the potential deposits within the permissive tract
 #'
 #' @description Get random samples from the probability density function (pdf)
-#' for the material tonnages in all undiscovered deposits within
+#' for the material tonnages in the potential deposits within
 #' the permissive tract.
 #'
 #' @param object
@@ -11,9 +11,9 @@
 #'
 #' @return
 #' Matrix comprising random samples of
-#' the material tonnages in all undiscovered deposits within
+#' the material tonnages in the potential deposits within
 #' the permissive tract and the associated
-#' number of undiscovered deposits.
+#' number of potential deposits.
 #'
 #' @examples
 #' pmf <- NDepositsPmf( "NegBinomial", list(theMean=5,theStdDev=4), "" )
@@ -28,11 +28,11 @@ getRandomSamples.TonnagePdfPT <- function(object) {
 }
 
 #' @title Plot the univariate, marginal pdfs for the material tonnages in
-#' all undiscovered deposits within the permissive tract
+#' the potential deposits within the permissive tract
 #'
 #' @description Plot the unvariate, marginal probability density
 #' functions (pdfs)
-#' for the material tonnages in all undiscovered deposits within
+#' for the material tonnages in the potential deposits within
 #' the permissive tract.
 #'
 #' @param object
@@ -110,7 +110,12 @@ plot.TonnagePdfPT <- function(object,
     df <- rbind(df, tmp2)
   }
 
-  xLabel <- paste("Tonnage (", object$units, ")", sep = "")
+  if(isUsgsStyle) {
+    xLabel <- paste("Tonnage, in ", object$units, sep = "")
+  } else {
+    xLabel <- paste("Tonnage (", object$units, ")", sep = "")
+  }
+
   infoText <- paste( "Prob of zero tonnage = ",
                      round(probZero, digits=3), sep="" )
 
@@ -120,20 +125,18 @@ plot.TonnagePdfPT <- function(object,
     ggplot2::ggtitle(infoText)
 
   if(isUsgsStyle)
-    p <- p + ggplot2::xlab(paste("Tonnage, in ", object$units, sep = "")) +
-    ggplot2::theme_bw()
+    p <- p + ggplot2::theme_bw()
 
   plot(p)
 
 }
 
 #' @title Summarize the univariate, marginal pdfs for the material
-#' tonnages in all
-#' undiscovered deposits within the permissive tract
+#' tonnages in the potential deposits within the permissive tract
 #'
 #' @description Summarize the univariate, marginal probability density
 #' functions (pdfs) for the
-#' material tonnages in all undiscovered deposits within the permissive
+#' material tonnages in the potential deposits within the permissive
 #' tract.
 #'
 #' @param object
@@ -178,8 +181,8 @@ summary.TonnagePdfPT <- function(object, nDigits = 3) {
 
   }
 
-  cat(sprintf("Summary of the pdf for the material tonnages in all\n"))
-  cat(sprintf("undiscovered deposits within the permissive tract.\n"))
+  cat(sprintf("Summary of the pdf for the material tonnages in\n"))
+  cat(sprintf("the potential deposits within the permissive tract.\n"))
   cat(sprintf("------------------------------------------------------------\n"))
   cat( sprintf( "Units for material tonnage: %s\n", object$units ))
 
@@ -207,10 +210,11 @@ summary.TonnagePdfPT <- function(object, nDigits = 3) {
 }
 
 #' @title Print the checks of the pdf
-#' for the material tonnages in all undiscovered deposits within the permissive tract
+#' for the material tonnages in the potential deposits within the permissive
+#' tract
 #'
 #' @description Print the checks of the probability density function (pdf)
-#' for the material tonnages in all undiscovered deposits within the permissive
+#' for the material tonnages in the potential deposits within the permissive
 #' tract.
 #'
 #' @param object
@@ -266,11 +270,11 @@ printChecks.TonnagePdfPT <- function(object, nDigits = 3) {
 }
 
 #' @title Construct the pdf for the material tonnages in
-#' all undiscovered deposits within the
+#' the potential deposits within the
 #' permissive tract
 #'
 #' @description Construct the probability density function (pdf) for the
-#' material tonnages in all undiscovered deposits within the permissive
+#' material tonnages in the potential deposits within the permissive
 #' tract. The pdf is not explicitly specified; instead it is implicitly
 #' specified with the random samples.
 #'
@@ -282,9 +286,8 @@ printChecks.TonnagePdfPT <- function(object, nDigits = 3) {
 #'
 #' @param nRandomSamples
 #' Number of random samples representing the pdf for the  material tonnages
-#' in all undiscovered deposits within the
-#' permissive tract. The actual number may differ slightly because of
-#' rounding.
+#' in the potential deposits within the
+#' permissive tract.
 #'
 #' @details
 #' The random samples are computed using the algorithm in Ellefsen and others
@@ -295,7 +298,7 @@ printChecks.TonnagePdfPT <- function(object, nDigits = 3) {
 #'
 #' @return If the input arguments have an error, the R-value NULL is returned.
 #' Otherwise, a list with the following components is returned. Note that
-#' these components pertain to the material tonnages in all undiscovered
+#' these components pertain to the material tonnages in the potential
 #' deposits within the permissive tract.
 #' @return \item{rs}{Matrix comprising the random samples of
 #' the material tonnages.}
@@ -353,7 +356,7 @@ TonnagePdfPT <- function(oPmf, oPdf, nRandomSamples = 20000) {
     i1 <- iStart
     i2 <- i1 + n - 1
     iStart <<- i2 + 1  # write to variable iStart in the next higher environment
-    return(rs1[i1:i2, ])
+    return(rs1[i1:i2, , drop = FALSE])
   }
 
   totalTonnages <- NULL
