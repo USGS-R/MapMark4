@@ -288,10 +288,10 @@ CalcDebugPmf <- function( nDeposits, relProbabilities ) {
 
 }
 
-#' @title Plot the pmf for the number of potential deposits
+#' @title Plot the pmf for the number of undiscovered deposits
 #'
 #' @description Plots the probability mass function (pmf) for the number of
-#' potential deposits in the permissive tract. If the type is Mark3 or Mark4,
+#' undiscovered deposits in the permissive tract. If the type is Mark3 or Mark4,
 #' then the alternative complementary cumulative distribution function
 #' is plotted too.
 #'
@@ -303,19 +303,19 @@ CalcDebugPmf <- function( nDeposits, relProbabilities ) {
 #'
 #' @param barWidth
 #' Width of the bars, which represent the probabilities for the numbers of
-#' potential deposits.
+#' undiscovered deposits.
 #'
 #' @param isUsgsStyle
 #' Make the plot format similar to the U.S. Geological Survey style
 #'
 #' @details
 #' The alternative complementary cumulative distribution function is
-#' G(x) = Pr( X >= x ) for - infinity < x < infinity. Between
-#' the discrete values of X, the function G(x) is defined and would
-#' be plotted as a horizontal lines. The problem is that these horizonal
-#' lines will be confusing to people who are unfamilar with cumulative
-#' distribution functions for discrete random variables. Consequently,
-#' they are omitted.
+#' G(x) = Pr( X >= x ) for - infinity < x < infinity. The function G(x) is
+#' defined everywhere on the real line, including between
+#' the integer values of x. However, plotting G(x) to be consistent with
+#' this definition would be confusing to people who are unfamilar with
+#' cumulative distribution functions for discrete random variables.
+#' Consequently, G(x) is plotted only at the integer values of x.
 #'
 #' @references
 #' Grimmett, G., and Stirzaker, D., 2001, Probability and random processes,
@@ -336,21 +336,25 @@ plot.NDepositsPmf <- function( object, isMeanPlotted = TRUE,
   df <- data.frame(nDeposits = object$nDeposits,
                    probs = object$probs)
 
-  p <- ggplot2::ggplot(df) +
-    ggplot2::geom_bar(ggplot2::aes(x = nDeposits, y = probs),
-                      stat = "identity", width = barwidth) +
-    ggplot2::scale_x_continuous("Number of potential deposits",
-                                limits = range(df$nDeposits)+c(-1,1)) +
-    ggplot2::ylab("Probability")
+  p <- ggplot2::ggplot(df)
 
   if(isMeanPlotted == TRUE) {
     p <- p + ggplot2::geom_vline(xintercept = object$theMean, colour = "red")
   }
 
+  p <- p + ggplot2::geom_bar(ggplot2::aes(x = nDeposits, y = probs),
+                      stat = "identity", width = barwidth) +
+    ggplot2::scale_x_continuous("Number of undiscovered deposits",
+                                limits = range(df$nDeposits)+c(-1,1)) +
+    ggplot2::ylab("Probability")
+
+
   if(isUsgsStyle)
     p <- p + ggplot2::theme_bw()
 
-  if( object$type == "Mark3" || object$type == "Mark4" ) {
+  if( !(object$type == "Mark3" || object$type == "Mark4") ) {
+    plot(p)
+  } else {
     df2 <- data.frame(nDeposits = object$nDeposits,
                      accdf = object$accdf)
     df3 <- data.frame(thresholds = object$pmf.args$thresholds,
@@ -361,28 +365,40 @@ plot.NDepositsPmf <- function( object, isMeanPlotted = TRUE,
                           data = df3, colour = "red", size = 4) +
       ggplot2::geom_point(ggplot2::aes(x = nDeposits, y = accdf)) +
       ggplot2::ylim(0,1) +
-      ggplot2::xlab("Number of potential deposits") +
+      ggplot2::xlab("Number of undiscovered deposits") +
       ggplot2::ylab("Probability")
 
     if(isUsgsStyle)
       q <- q + ggplot2::theme_bw()
+
+    if(isUsgsStyle) {
+      p <- p + ggplot2::ggtitle("A") +
+        ggplot2::theme(plot.title = ggplot2::element_text(hjust = 0,
+                                                          face = "italic"))
+      q <- q + ggplot2::ggtitle("B") +
+        ggplot2::theme(plot.title = ggplot2::element_text(hjust = 0,
+                                                          face = "italic"))
+    } else {
+      p <- p + ggplot2::ggtitle("(a)") +
+        ggplot2::theme(plot.title = ggplot2::element_text(hjust = 0))
+      q <- q + ggplot2::ggtitle("(b)") +
+        ggplot2::theme(plot.title = ggplot2::element_text(hjust = 0))
+    }
 
     grid::grid.newpage()
     grid::pushViewport(grid::viewport(layout=grid::grid.layout(1,2)))
     plot(p, vp=grid::viewport(layout.pos.row=1, layout.pos.col=1))
     plot(q, vp=grid::viewport(layout.pos.row=1, layout.pos.col=2))
 
-  } else {
-    plot(p)
   }
 
 }
 
 
-#' @title Summarize the pmf for the number of potential deposits
+#' @title Summarize the pmf for the number of undiscovered deposits
 #'
 #' @description Summarize the probability mass function (pmf) for
-#' the number of potential deposits in the permissive tract.
+#' the number of undiscovered deposits in the permissive tract.
 #'
 #' @param object
 #' An object of class "NDepositsPmf"
@@ -395,7 +411,7 @@ plot.NDepositsPmf <- function( object, isMeanPlotted = TRUE,
 #'
 summary.NDepositsPmf <- function( object) {
 
-  cat(sprintf("Summary of the pmf for the number of potential deposits\n"))
+  cat(sprintf("Summary of the pmf for the number of undiscovered deposits\n"))
   cat(sprintf("within the permissive tract.\n"))
   cat(sprintf("------------------------------------------------------------\n"))
   cat( sprintf( "Type: %s\n", object$type ))
@@ -415,10 +431,10 @@ summary.NDepositsPmf <- function( object) {
 
 }
 
-#' @title Get the pmf for the number of potential deposits
+#' @title Get the pmf for the number of undiscovered deposits
 #'
 #' @description Get the probability mass function (pmf)
-#' for the number of potential deposits in the permissive tract.
+#' for the number of undiscovered deposits in the permissive tract.
 #'
 #' @param object
 #' An object of class "NDepositsPmf"
@@ -440,10 +456,10 @@ getNDepositPmf <- function(object) {
 
 
 
-#' @title Construct the pmf for the number of potential deposits
+#' @title Construct the pmf for the number of undiscovered deposits
 #'
 #' @description Construct the probability mass function (pmf) for the number of
-#' potential deposits within the permissive tract
+#' undiscovered deposits within the permissive tract
 #'
 #' @param type
 #' Character string with the type of pmf (See Details).
@@ -573,9 +589,9 @@ getNDepositPmf <- function(object) {
 #' real-valued and is the mean of the Poisson pmf.
 #'
 #' For the Poisson pmf, the random variable that represents the number of
-#' potential deposits extends from 0 to infinity. Of course, the Monte Carlo
+#' undiscovered deposits extends from 0 to infinity. Of course, the Monte Carlo
 #' simulation cannot be performed for an infinite range. When the number of
-#' deposits is far from the mean, the probabilities are so small
+#' deposits is far from the mode, the probabilities are so small
 #' that they have no practical effect on the simulation results.
 #' The range associated with these small probabilites is delimited
 #' by a lower bound and an upper bound, which are calulated from
@@ -604,7 +620,7 @@ getNDepositPmf <- function(object) {
 #'
 #' For the negative binomial pmf, the random variable that represents the
 #' number of
-#' potential deposits extends from 0 to infinity. Of course, the Monte Carlo
+#' undiscovered deposits extends from 0 to infinity. Of course, the Monte Carlo
 #' simulation cannot be performed for an infinity range. The procedure that
 #' solves for this problem is described in section for the Poisson pmf.
 #'
@@ -638,7 +654,7 @@ getNDepositPmf <- function(object) {
 #' @return \item{call}{Function call}
 #' @return \item{probs}{Vector containing just the non-zero probabilities
 #' in the pmf.}
-#' @return \item{nDeposits}{Vector containing the number of potential
+#' @return \item{nDeposits}{Vector containing the number of undiscovered
 #' deposits that are associated with the non-zero probabilities in the pmf.
 #' The size of vector nDeposits is equal to the size of vector probs.}
 #' @return \item{specifiedAccdf}{If the type is "Mark3" or "Mark4", then
@@ -647,9 +663,9 @@ getNDepositPmf <- function(object) {
 #' associated with the thresholds, which are specified in pmf.arg. Otherwise,
 #' this entry is NULL.}
 #' @return \item{theMean}{The expected value (mean) of the number of
-#' potential deposits within the permissive tract. The number might differ
+#' undiscovered deposits within the permissive tract. The number might differ
 #' slightly from the input specification.}
-#' @return \item{theVar}{The variance of the number of potential deposits
+#' @return \item{theVar}{The variance of the number of undiscovered deposits
 #' within the permissive tract.}
 #' @return \item{accdf}{The alternative complementary cumulative distribution
 #' function for the pmf. Although it is calculated for all types of pmfs,
@@ -750,7 +766,6 @@ NDepositsPmf <- function( type, pmf.args, description="" ) {
                   theEntropy=theEntropy ) )
 
   }
-
 
   pmf <- switch( type,
                  Mark3 = do.call( CalcMark3Pmf, pmf.args ),

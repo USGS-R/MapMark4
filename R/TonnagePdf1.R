@@ -19,11 +19,11 @@ getUnits <- function(object) {
 }
 
 #' @title Get random samples from the pdf for material tonnages in one
-#' potential deposit
+#' undiscovered deposit
 #'
 #' @description Get random samples from the probability density function (pdf)
 #' for the
-#' material tonnages in one potential deposit within the permissive
+#' material tonnages in one undiscovered deposit within the permissive
 #' tract.
 #'
 #' @param object
@@ -56,7 +56,7 @@ getUnits <- function(object) {
 #' material tonnage with exponentiation.
 #'
 #' @return Matrix containing random samples from the pdf for the
-#' material tonnages for one potential deposit in the permissive
+#' material tonnages for one undiscovered deposit in the permissive
 #' tract.
 #'
 #' @references
@@ -114,6 +114,12 @@ getRandomSamples.TonnagePdf1 <- function(object, nSamples, seed = NULL, log_rs =
     # Make the draws random
     rsLogTonnage <- rsLogTonnage[sample.int(N, size = N), ]
 
+    # Ensure that random samples are in a matrix --- there is only one
+    # pathologic case
+    if(ncol(object$logTonnages) == 1){
+      rsLogTonnage <- matrix(rsLogTonnage, ncol = 1)
+    }
+
   } else {
     rsLogTonnage <- mvtnorm::rmvnorm(N,
                                      mean = colMeans(object$logTonnages),
@@ -128,7 +134,7 @@ getRandomSamples.TonnagePdf1 <- function(object, nSamples, seed = NULL, log_rs =
         theRange[1] <= rsLogTonnage[, j] &
         rsLogTonnage[, j] <= theRange[2]
     }
-    rsLogTonnage <- rsLogTonnage[areWithinBnds, ]
+    rsLogTonnage <- rsLogTonnage[areWithinBnds, , drop = FALSE]
   }
 
   rsLogTonnage <- rsLogTonnage[1:nSamples, , drop = FALSE]
@@ -143,11 +149,11 @@ getRandomSamples.TonnagePdf1 <- function(object, nSamples, seed = NULL, log_rs =
 }
 
 #' @title Plot the univariate, marginal cdfs for the material tonnages
-#' in one potential deposit
+#' in one undiscovered deposit
 #'
 #' @description Plot the univariate, marginal cumulative distribution
 #' functions (cdfs)
-#' for the material tonnages in one potential deposit within the
+#' for the material tonnages in one undiscovered deposit within the
 #' permissive tract. Overlaid on the plot is the
 #' empirical cumulative distribution function (ecdf)
 #' for the known material tonnages.
@@ -177,15 +183,14 @@ getRandomSamples.TonnagePdf1 <- function(object, nSamples, seed = NULL, log_rs =
 #'
 #' @export
 #'
-plot.TonnagePdf1 <- function(object,
-                             isUsgsStyle = TRUE) {
+plot.TonnagePdf1 <- function(object, isUsgsStyle = TRUE) {
 
-  # If there are too many random samples, subset them. The change
+  # If there are too many random samples, subset them. Then change
   # the data structure
   n <- nrow(object$rs)
   if(n > 5000) {
     indices <- sample.int(n, size = 5000)
-    df.rs <- reshape2::melt(object$rs[indices, ])
+    df.rs <- reshape2::melt(object$rs[indices, , drop = FALSE])
   } else {
     df.rs <- reshape2::melt(object$rs)
   }
@@ -219,12 +224,9 @@ plot.TonnagePdf1 <- function(object,
                        data = df.obs, geom = "point") +
     ggplot2::scale_x_continuous(name = xLabel, trans = "log10") +
     ggplot2::ylab("Probability") +
-    ggplot2::geom_text(aes(x, y, label = caption),
-                       data = data.frame(x = max(df.rs$Tonnage), y = 0),
-                       hjust = 1, vjust = 1)
-
-
-    ggplot2::ggtitle(title)
+    ggplot2::geom_text(ggplot2::aes(x, y, label = caption),
+                       data = data.frame(x = min(df.rs$Tonnage), y = 0),
+                       hjust = 0, vjust = 1)
 
   if(isUsgsStyle) {
     p <- p + ggplot2::theme_bw()
@@ -234,11 +236,151 @@ plot.TonnagePdf1 <- function(object,
 
 }
 
-#' @title Summarize the pdf for the material tonnages in one potential
+#' @title Plot the marginal distributions, as a matrix, for the
+#' material tonnages
+#' in one undiscovered deposit
+#'
+#' @description Plot the univariate and bivariate marginal distributions,
+#' as a matrix, for the material tonnages
+#' in one undiscovered deposit. This matrix shows how well the
+#' probability density function (pdf) represents the known material tonnages.
+#'
+#' @param object
+#' An object of class "TonnagePdf1".
+#'
+#' @param nPlotSamples
+#' Number of samples that represent the pdf in the plots.
+#'
+#' @param isUsgsStyle
+#' Make the plot format similar to the U.S. Geological Survey style
+#'
+#' @details
+#' Recall that the pdf is implicitly specified by random samples. Consequently,
+#' the plots within the matrix are generated from \code{nPlotSamples} random
+#' samples. A suitable value for parameter \code{nPlotSamples} is
+#' approximately 1000.
+#'
+#' Along the diagonal of the matrix are histograms showing the marginal,
+#' univariate
+#' distributions. Along the horizontal axis of each histgram is a (red)
+#' rug plot of the corresponding, known material tonnages.
+#'
+#' In the upper triangle of the matrix are scatter plots
+#' showing the marginal, bivariate distributions. These scatter plots use
+#' blue dots. Overlaid on each plot is
+#' another scatter plot for the corresponding, known material tonnages.
+#' These overlaying plots use red dots.
+#'
+#' In the lower triangle of the matrix are contour plots
+#' showing the marginal, bivariate distributions. Overlaid on each plot is
+#' a scatter plot for the corresponding, known material tonnages. These
+#' overlaying plots use red dots.
+#'
+#' @examples
+#' pdf1 <- TonnagePdf1(ExampleTonnageData, "mt")
+#' plotMatrix(pdf1)
+#'
+#' @export
+#'
+plotMatrix.TonnagePdf1 <- function(object, nPlotSamples = 1000,
+                                   isUsgsStyle = TRUE) {
+
+  d <- as.data.frame(object$rs[1:nPlotSamples, , drop = FALSE])
+  N <- ncol(d)
+  f <- object$knownTonnages[, -1, drop = FALSE]
+
+  if(isUsgsStyle) {
+    tLabel <- paste("tonnage, in ", object$units, sep = "")
+  } else {
+    tLabel <- paste("tonnage (", object$units, ")", sep = "")
+  }
+
+  grid::grid.newpage()
+  grid::pushViewport(grid::viewport(layout=grid::grid.layout(N,N)))
+
+  for (i in 1:N) {
+    for(j in 1:N) {
+      if(i == j) {
+        # diagonal
+        matName <- colnames(d)[i]
+        p <- ggplot2::ggplot() +
+          ggplot2::geom_histogram(ggplot2::aes_string(x = matName,
+                                                      y = "..density.."),
+                                  data = d, bins = 15,
+                                  alpha = 0.3, colour = "white",
+                                  fill = "blue") +
+          ggplot2::geom_rug(ggplot2::aes_string(x = matName),
+                            data = f, alpha = 0.3, colour = "red") +
+          ggplot2::scale_x_continuous(name = paste( matName, tLabel, sep = " "),
+                                      trans = "log10") +
+          ggplot2::scale_y_continuous(name = "Density")
+      } else if (j < i) {
+        # lower triangle
+        xMatName <- colnames(d)[j]
+        yMatName <- colnames(d)[i]
+        p <- ggplot2::ggplot() +
+          ggplot2::geom_density_2d(ggplot2::aes_string(x = xMatName,
+                                                       y = yMatName),
+                                   data = d) +
+          ggplot2::geom_point(ggplot2::aes_string(x = xMatName, y = yMatName),
+                              data = f, alpha = 0.5, colour = "red", pch = 16) +
+          ggplot2::scale_x_continuous(name =
+                                        paste( xMatName, tLabel, sep = " "),
+                                      trans = "log10") +
+          ggplot2::scale_y_continuous(name =
+                                        paste( yMatName, tLabel, sep = " "),
+                                      trans = "log10")
+
+      } else {
+        # upper triangle
+        xMatName <- colnames(d)[j]
+        yMatName <- colnames(d)[i]
+        p <- ggplot2::ggplot() +
+          ggplot2::geom_point(ggplot2::aes_string(x = xMatName, y = yMatName),
+                              data = d, alpha = 0.2,
+                              colour = "blue", pch = 16) +
+          ggplot2::geom_point(ggplot2::aes_string(x = xMatName, y = yMatName),
+                              data = f, alpha = 0.5,
+                              colour = "red", pch = 16) +
+          ggplot2::scale_x_continuous(name =
+                                        paste( xMatName, tLabel, sep = " "),
+                                      trans = "log10") +
+          ggplot2::scale_y_continuous(name =
+                                        paste( yMatName, tLabel, sep = " "),
+                                      trans = "log10")
+
+      }
+
+      if(isUsgsStyle) {
+        p <- p + ggplot2::theme_bw()
+      }
+
+      if(N > 1){
+        index <- (i - 1) * N + j
+
+        if(isUsgsStyle) {
+          figLabel <- LETTERS[index]
+          p <- p + ggplot2::ggtitle(figLabel) +
+            ggplot2::theme(plot.title = ggplot2::element_text(hjust = 0,
+                                                              face = "italic"))
+        } else {
+          figLabel <- paste( "(", letters[index], ")", sep = "")
+          p <- p + ggplot2::ggtitle(figLabel) +
+            ggplot2::theme(plot.title = ggplot2::element_text(hjust = 0))
+        }
+      }
+
+      print(p, vp=grid::viewport(layout.pos.row=i, layout.pos.col=j))
+    }
+  }
+}
+
+
+#' @title Summarize the pdf for the material tonnages in one undiscovered
 #' deposit
 #'
 #' @description Summarize the probability density function (pdf) for the
-#' material tonnages in one potential deposit within the permissive
+#' material tonnages in one undiscovered deposit within the permissive
 #' tract.
 #'
 #' @param object
@@ -263,13 +405,13 @@ plot.TonnagePdf1 <- function(object,
 summary.TonnagePdf1 <- function(object, nDigits = 2) {
 
   cat(sprintf("Summary of the pdf for the material tonnages in one\n"))
-  cat(sprintf("potential deposit within the permissive tract.\n"))
+  cat(sprintf("undiscovered deposit within the permissive tract.\n"))
   cat(sprintf("------------------------------------------------------------\n"))
   cat( sprintf( "Units for material tonnage: %s\n", object$units ))
   cat( sprintf( "Pdf type: %s\n", object$pdfType ))
   if(object$isTruncated) {
     cat( sprintf("Pdf is truncated at the lowest and the highest values\n"))
-    cat( sprintf("of the material tonnages in the discovered deposits.\n"))
+    cat( sprintf("of the known material tonnages in the discovered deposits.\n"))
   } else {
     cat( sprintf("Pdf is not truncated.\n"))
   }
@@ -288,8 +430,9 @@ summary.TonnagePdf1 <- function(object, nDigits = 2) {
   }
 
   cat( sprintf( "\n\n"))
-  cat( sprintf( "Summary statistics for the material tonnages (discovered deposits):\n" ))
-  print(summary(object$knownTonnages[, -1]))
+  cat( sprintf( "Summary statistics for the known material tonnages\n" ))
+  cat( sprintf( "in the discovered deposits:\n" ))
+  print(summary(object$knownTonnages[, -1, drop = FALSE]))
   cat( sprintf( "\n"))
   cat( sprintf( "Summary statistics for the pdf:\n" ))
   print(summary(object$rs))
@@ -304,12 +447,12 @@ summary.TonnagePdf1 <- function(object, nDigits = 2) {
 }
 
 #' @title Print checks of the
-#' pdf for the material tonnages in one potential
+#' pdf for the material tonnages in one undiscovered
 #' deposit
 #'
 #' @description Print checks of the
 #' probability density function (pdf) for the
-#' material tonnages in one potential deposit within the permissive
+#' material tonnages in one undiscovered deposit within the permissive
 #' tract. Summary statistics are calculated for both
 #' the known material tonnages and the pdf that represents those tonnages.
 #'
@@ -337,16 +480,18 @@ summary.TonnagePdf1 <- function(object, nDigits = 2) {
 #'
 printChecks.TonnagePdf1 <- function(object, nDigits = 3) {
 
+  cat( sprintf( "Units for material tonnage: %s\n", object$units ))
+
   cat( sprintf( "\n\n"))
   cat( sprintf( "Mean vectors for material tonnages:\n" ))
   tmp <- cbind(object$theKnownMean, object$theMean)
-  colnames(tmp) <- c("Discovered", "Pdf")
+  colnames(tmp) <- c("Known", "Pdf")
   print(signif(tmp, digits = nDigits))
 
   cat( sprintf( "\n\n"))
   cat( sprintf( "Standard deviation vectors for material tonnages:\n" ))
   tmp <- cbind(object$theKnownSd, object$theSd)
-  colnames(tmp) <- c("Discovered", "Pdf")
+  colnames(tmp) <- c("Known", "Pdf")
   print(signif(tmp, digits = nDigits))
 
   cat(sprintf( "\n\n"))
@@ -356,22 +501,24 @@ printChecks.TonnagePdf1 <- function(object, nDigits = 3) {
   diag(tmp) <- NA
   print(signif(tmp, digits = nDigits))
   cat(sprintf("\nExplanation\n" ))
-  cat(sprintf("The upper triangle is the upper triangle of the\n"))
-  cat(sprintf("correlation matrix for the material tonnages.\n"))
-  cat(sprintf("from the discovered deposits.\n"))
-  cat(sprintf("The lower triangle is the lower triangle of the\n" ))
-  cat(sprintf("correlation matrix for the material tonnages\n"))
-  cat(sprintf("that are represented by the pdf.\n"))
+  cat(sprintf("1. The upper triangle of the composite correlation is\n"))
+  cat(sprintf("the upper triangle of the correlation matrix for the\n"))
+  cat(sprintf("known material tonnages in the discovered deposits.\n"))
+  cat(sprintf("2. The lower triangle of the composite correlation is\n" ))
+  cat(sprintf("the lower triangle of the correlation matrix for the\n"))
+  cat(sprintf("material tonnages that are represented by the pdf.\n"))
+  cat(sprintf("3. If the number of materials is 1, then the\n"))
+  cat(sprintf("composite correlation matrix is irrelevant.\n"))
 
 
 }
 
 
 #' @title Construct the pdf for the material tonnages in one
-#' potential deposit
+#' undiscovered deposit
 #'
 #' @description Construct the probability density function (pdf) for the
-#' material tonnages in one potential deposit within the permissive
+#' material tonnages in one undiscovered deposit within the permissive
 #' tract. The pdf is not explicitly specified; instead it is implicitly
 #' specified with the random samples that are generated from it.
 #'
@@ -486,7 +633,7 @@ TonnagePdf1 <- function(knownTonnages,
                         pdfType = "empirical",
                         isTruncated = TRUE,
                         minNDeposits = 20,
-                        nRandomSamples = 100000, seed = 7) {
+                        nRandomSamples = 1000000, seed = 7) {
 
   CalcSumDeviance <- function(rsPdf, rsData, nBins = 30) {
 
@@ -548,8 +695,8 @@ TonnagePdf1 <- function(knownTonnages,
           call. = FALSE )
   }
 
-  theKnownMean <- colMeans(knownTonnages[, -1])
-  theKnownCov <- cov(knownTonnages[, -1])
+  theKnownMean <- colMeans(knownTonnages[, -1, drop = FALSE])
+  theKnownCov <- cov(knownTonnages[, -1, drop = FALSE])
   theKnownSd <- sqrt(diag(theKnownCov))
   theKnownCor <- cov2cor(theKnownCov)
 
@@ -558,7 +705,7 @@ TonnagePdf1 <- function(knownTonnages,
                 pdfType = pdfType,
                 isTruncated = isTruncated,
                 matNames = colnames(knownTonnages)[-1],
-                logTonnages = as.matrix(log(knownTonnages[, -1])),
+                logTonnages = as.matrix(log(knownTonnages[, -1, drop = FALSE])),
                 theKnownMean = theKnownMean,
                 theKnownCov = theKnownCov,
                 theKnownSd = theKnownSd,
@@ -571,7 +718,7 @@ TonnagePdf1 <- function(knownTonnages,
   rval$theCov <- cov(rval$rs)
   rval$theSd <- sqrt(diag(rval$theCov))
   rval$theCor <- cov2cor(rval$theCov)
-  rval$sumDeviance <- CalcSumDeviance(rval$rs, rval$knownTonnages[, -1])
+  rval$sumDeviance <- CalcSumDeviance(rval$rs, rval$knownTonnages[, -1, drop = FALSE])
   rval$call <- sys.call()
 
   return(rval)

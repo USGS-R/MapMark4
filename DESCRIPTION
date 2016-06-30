@@ -12,6 +12,18 @@ Description: ProMinerCore is a software package that carries out
     mineral resource assessments. This package provide the core (essential)
     R functions to perform those calculations but does not provide a
     graphical user interface.
+    Although this program has been used by the USGS, no warranty, expressed
+    or implied, is made by the USGS or the United States Government as to the
+    accuracy and functioning of the program and related program material nor
+    shall the fact of distribution constitute any such warranty, and no
+    responsibility is assumed by the USGS in connection therewith.
+    This software is in the public domain because it contains materials that
+    originally came from the United States Geological Survey, an agency of the
+    United States Department of Interior. For more information, see the
+    official USGS copyright policy at
+    http://www.usgs.gov/visual-id/credit_usgs.html#copyright
+Depends:
+
 Depends:
     R (>= 3.02)
 License: CC0
@@ -21,7 +33,7 @@ Imports:
     ks,
     misc3d,
     rgl,
-    ggplot2,
+    ggplot2 (>= 2.1.0),
     reshape2
 Suggests:
     knitr,
