@@ -1,7 +1,7 @@
 # The function argument(s) is (are) defined in the documentation for
 # function NDepositsPmf.
 #
-#' @useDynLib ProMinerCore
+#' @useDynLib MapMark4
 #'
 CalcMark3Pmf <- function( thresholds ){
 
@@ -50,11 +50,11 @@ CalcMark3Pmf <- function( thresholds ){
 # The function argument(s) is (are) defined in the documentation for
 # function NDepositsPmf.
 #
-#' @useDynLib ProMinerCore
+#' @useDynLib MapMark4
 #'
-CalcMark4Pmf <- function( thresholds, maxNumberOfDeposits ){
+CalcMark3RevisedPmf <- function( thresholds, maxNumberOfDeposits ){
 
-  # These variables are used in fortran subroutine Mark4Pmf, so they are used here too.
+  # These variables are used in fortran subroutine Mark3RevisedPmf, so they are used here too.
   ND <- as.integer( c( 0, thresholds ) )
   sizeND <- length( ND )
   INOD <- length( thresholds )
@@ -64,32 +64,32 @@ CalcMark4Pmf <- function( thresholds, maxNumberOfDeposits ){
   status <- 0
 
   if( INOD != 3 && INOD != 5 && INOD != 7 && INOD != 9 ) {
-    stop( sprintf( "Function CalcMark4Pmf\n" ),
+    stop( sprintf( "Function CalcMark3RevisedPmf\n" ),
           sprintf( "The number of thresholds must be 3, 5, 7, or 9.\n" ),
           sprintf( "But the actual number is %d.\n", INOD ),
           call. = FALSE )
   }
 
   if( any( diff( ND ) < 0 ) ) {
-    stop( sprintf( "Function CalcMark4Pmf\n" ),
+    stop( sprintf( "Function CalcMark3RevisedPmf\n" ),
           sprintf( "The specified thresholds must be in non-decreasing order.\n" ),
           call. = FALSE )
   }
 
   if( maxd < tail( thresholds, n=1 ) ) {
-    stop( sprintf( "Function CalcMark4Pmf\n" ),
+    stop( sprintf( "Function CalcMark3RevisedPmf\n" ),
           sprintf( "The maximum number of deposits must be >= %d\n", tail( thresholds, n=1 ) ),
           sprintf( "But the actual number is %d.\n", maxd ),
           call. = FALSE )
   }
 
 
-  tmp <- .Fortran( "Mark4Pmf", as.integer(ND), as.integer(sizeND), as.integer(INOD), as.integer(maxd),
+  tmp <- .Fortran( "Mark3RevisedPmf", as.integer(ND), as.integer(sizeND), as.integer(INOD), as.integer(maxd),
                    as.double(XX), as.integer(sizeXX), as.integer(status) )
 
   if( tmp[[7]] != 0 ) {
-    stop( sprintf( "Function CalcMark4Pmf\n" ),
-          sprintf( "Fortran subroutine Mark4Pmf failed.\n" ),
+    stop( sprintf( "Function CalcMark3RevisedPmf\n" ),
+          sprintf( "Fortran subroutine Mark3RevisedPmf failed.\n" ),
           sprintf( "Status = %d\n", tmp[[7]] ),
           call. = FALSE )
   }
@@ -291,7 +291,8 @@ CalcDebugPmf <- function( nDeposits, relProbabilities ) {
 #' @title Plot the pmf for the number of undiscovered deposits
 #'
 #' @description Plots the probability mass function (pmf) for the number of
-#' undiscovered deposits in the permissive tract. If the type is Mark3 or Mark4,
+#' undiscovered deposits in the permissive tract. If the type is Mark3 or
+#' Mark3Revised,
 #' then the alternative complementary cumulative distribution function
 #' is plotted too.
 #'
@@ -352,7 +353,7 @@ plot.NDepositsPmf <- function( object, isMeanPlotted = TRUE,
   if(isUsgsStyle)
     p <- p + ggplot2::theme_bw()
 
-  if( !(object$type == "Mark3" || object$type == "Mark4") ) {
+  if( !(object$type == "Mark3" || object$type == "Mark3Revised") ) {
     plot(p)
   } else {
     df2 <- data.frame(nDeposits = object$nDeposits,
@@ -471,7 +472,7 @@ getNDepositPmf <- function(object) {
 #' Character string with a short description of the pmf.
 #'
 #' @details
-#' The type must be one of "Mark3", "Mark4",
+#' The type must be one of "Mark3", "Mark3Revised",
 #' "UserSpecified", "Poisson", "NegBinomial", or "Debug". Each type has
 #' different arguments, which are specified in pmf.args. The arguments for
 #' each type are described below.
@@ -535,14 +536,14 @@ getNDepositPmf <- function(object) {
 #' This subroutine was extracted from program Mark3B (Root and others, 1992;
 #' Root and others, 1998) and then compiled as a direct link library.
 #'
-#' \emph{Mark4}
+#' \emph{Mark3Revised}
 #'
 #' List pmf.args has two elements, which are named "thresholds" and
 #' "maxNumberOfDeposits". Thresholds was described in the previous section.
 #' Variable maxNumberOfDeposits is an integer; it must be greater than or
 #' equal to the last element in thresholds.
 #'
-#' Fortran subroutine Mark4Pmf calculates a pmf such that its aacdf
+#' Fortran subroutine Mark3RevisedPmf calculates a pmf such that its aacdf
 #' equals exactly the aacdf that is specified with the thresholds.
 #' The algorithm was developed and implemented by Jeffery D. Phillips.
 #'
@@ -657,7 +658,8 @@ getNDepositPmf <- function(object) {
 #' @return \item{nDeposits}{Vector containing the number of undiscovered
 #' deposits that are associated with the non-zero probabilities in the pmf.
 #' The size of vector nDeposits is equal to the size of vector probs.}
-#' @return \item{specifiedAccdf}{If the type is "Mark3" or "Mark4", then
+#' @return \item{specifiedAccdf}{If the type is "Mark3" or
+#' "Mark3Revised", then
 #' this entry is a vector containing probabilities from the alternative
 #' complementary cumulative distribution function. These probabilites are
 #' associated with the thresholds, which are specified in pmf.arg. Otherwise,
@@ -669,7 +671,7 @@ getNDepositPmf <- function(object) {
 #' within the permissive tract.}
 #' @return \item{accdf}{The alternative complementary cumulative distribution
 #' function for the pmf. Although it is calculated for all types of pmfs,
-#' it is useful only for the "Mark3" and "Mark4" types.}
+#' it is useful only for the "Mark3" and "Mark3Revised" types.}
 #' @return \item{entropy}{The information entropy, which is calculated with
 #' the natural logarithm.}
 #'
@@ -691,9 +693,9 @@ getNDepositPmf <- function(object) {
 #' "Test Mark3" )
 #' plot( nDepositsPmf1 )
 #'
-#' # Mark4 pmf
-#' nDepositsPmf2 <- NDepositsPmf( "Mark4",
-#' list(thresholds=c(1,7,20),maxNumberOfDeposits=23), "Test Mark4" )
+#' # Mark3Revised pmf
+#' nDepositsPmf2 <- NDepositsPmf( "Mark3Revised",
+#' list(thresholds=c(1,7,20),maxNumberOfDeposits=23), "Test Mark3Revised" )
 #' plot( nDepositsPmf2 )
 #'
 #' # User specified pmf
@@ -769,7 +771,7 @@ NDepositsPmf <- function( type, pmf.args, description="" ) {
 
   pmf <- switch( type,
                  Mark3 = do.call( CalcMark3Pmf, pmf.args ),
-                 Mark4 = do.call( CalcMark4Pmf, pmf.args ),
+                 Mark3Revised = do.call( CalcMark3RevisedPmf, pmf.args ),
                  UserSpecified = do.call( CalcUserSpecifiedPmf, pmf.args ),
                  NegBinomial = do.call( CalcNegBinomialPmf, pmf.args ),
                  Poisson = do.call( CalcPoissonPmf, pmf.args ),
@@ -783,7 +785,7 @@ NDepositsPmf <- function( type, pmf.args, description="" ) {
 
   stats <- CalcSummaryStats( adjusted.pmf$probs, adjusted.pmf$nDeposits )
 
-  # If the type is neither Mark3 nor Mark4, then specifiedAccdf is
+  # If the type is neither Mark3 nor Mark3Revised, then specifiedAccdf is
   # set to NULL.
   rval <- list( type=type,
                 pmf.args=pmf.args,

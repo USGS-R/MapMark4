@@ -1,4 +1,4 @@
-Package: ProMinerCore
+Package: MapMark4
 Type: Package
 Title: Probability calculations for three-part mineral resource assessments
 Version: 1.0
@@ -7,7 +7,7 @@ Authors@R: c( person("Karl", "Ellefsen", email = "ellefsen@usgs.gov",
             role = c("aut", "cre")),
             person("Jeffery", "Phillips", email = "dsmith@usgs.gov",
             role = c("aut")))
-Description: ProMinerCore is a software package that carries out
+Description: MapMark4 is a software package that carries out
     the probability calculations for three-part
     mineral resource assessments. This package provide the core (essential)
     R functions to perform those calculations but does not provide a
@@ -22,8 +22,6 @@ Description: ProMinerCore is a software package that carries out
     United States Department of Interior. For more information, see the
     official USGS copyright policy at
     http://www.usgs.gov/visual-id/credit_usgs.html#copyright
-Depends:
-
 Depends:
     R (>= 3.02)
 License: CC0

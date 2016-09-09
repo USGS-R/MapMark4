@@ -1,21 +1,21 @@
 
 ! Mark3Pmf
-! 
-! Description: Calculates a probability distribution for the number of deposits, using the 
+!
+! Description: Calculates a probability distribution for the number of deposits, using the
 ! methodology in Root and others (1992).
 !
 ! Arguments:
 ! ND()      Lists the thresholds for the calculated probability distribution (see Details).
-! sizeND    Size of vector ND 
+! sizeND    Size of vector ND
 ! INOD      Number of specified thresholds. The only allowed values are 3, 5, 7, and 9.
 ! XX()      Lists the calculated probabilities.
 ! sizeXX    Size of vector XX.
 ! status    Indicates whether any of the input varibables are incorrect (see Details).
 !
-! Details: 
+! Details:
 ! The configurations for ND depends on INOD:
 !
-!                                      Description 
+!                                      Description
 !    Element    INOD = 3                   INOD = 5                   INOD = 7                   INOD = 9
 !    ND(1)      not used                   not used                   not used                   not used
 !    ND(2)      P( N >= ND(2) ) = 0.9      P( N >= ND(2) ) = 0.9      P( N >= ND(2) ) = 0.9      P( N >= ND(2) ) = 0.9
@@ -33,45 +33,45 @@
 ! deposits. The elements of ND must be nondecreasing. For example,
 ! if INOD is 3, then ND(2) <= ND(3) <= ND(4). Although it seems that the elements of ND should
 ! be strictly increasing, this is not required by the algorithm. The size of ND must be at least
-! INOD+1. Unfortunately, ND is modified within the subroutine. 
+! INOD+1. Unfortunately, ND is modified within the subroutine.
 !
 ! If ND(2) is specified as 0, then, according to the previous definition, P( N >= 0 ) = 0.9. Of course,
-! this is wrong because P( N >= 0 ) = 1. To address this problem, the algorithm is implemented such that 
+! this is wrong because P( N >= 0 ) = 1. To address this problem, the algorithm is implemented such that
 ! P( N >= 1 ) < 0.9. (This doesn't make sense to me. KJE)
 !
 ! The configuration of XX is:
 !
-!                                         Probability of having 
+!                                         Probability of having
 !    Element              (INOD = 3)       (INOD = 5)       (INOD = 7)       (INOD = 9)
 !    XX(1)                0 deposits       0 deposits       0 deposits       0 deposits
 !    XX(2)                1 deposit        1 deposit        1 deposit        1 deposit
 !    XX(3)                2 deposits       2 deposits       2 deposits       2 deposits
-!    ...                                                                     
+!    ...
 !    XX( ND(INOD+1)+1 )   ND(4) deposits   ND(6) deposits   ND(8) deposits   ND(10) deposits
 !
-! The size of XX must be at least ND(INOD+1)+1. (One is added because the first element of XX is 
+! The size of XX must be at least ND(INOD+1)+1. (One is added because the first element of XX is
 ! the probability of zero deposits.
 !
 ! If status equals 1, then INOD is not 3, 5, 7, or 9. If status equals 10, then the elements of ND are not
 ! nondecreasing. If status equals 11, then both of these errors occured.
 !
-! This code was extracted from the Mark3B program (Root and others, 1998). In that program 
-! are subroutines DISTRIB3, DISTRIB5, and DISTRIB9. The parts of these subroutines that calculate the 
+! This code was extracted from the Mark3B program (Root and others, 1998). In that program
+! are subroutines DISTRIB3, DISTRIB5, and DISTRIB9. The parts of these subroutines that calculate the
 ! probabilitydistribution are practically identical, so they were replaced by this one subroutine. There were
 ! only three modifications: (1) explicit declaration of the varibles, (2) checks for errors
 ! in the input variables, (3) replaced variables DISTP3/DISTP5/DISTP9 with a single variable DISTP,
 ! and (4) revision of the last executable statement (so that it works with all three values of INOD).
 !
-! All variables (except four) are identical to the corresponding variables in program Mark3B, to make it 
+! All variables (except four) are identical to the corresponding variables in program Mark3B, to make it
 ! easy to compare the codes. The exceptions are new variables: sizeND, sizeXX, status, and error, which are
 ! needed to check for errors.
 !
-! Dates: 26 Jan 2012, Karl J. Ellefsen: Adapted for use in a dll 
+! Dates: 26 Jan 2012, Karl J. Ellefsen: Adapted for use in a dll
 !
 ! References:
-! Root, D.H., Menzie, W.D., and Scott, W.A., 1992, Computer Monte Carlo Simulation in Quantitative 
+! Root, D.H., Menzie, W.D., and Scott, W.A., 1992, Computer Monte Carlo Simulation in Quantitative
 ! Resource Estimation: Nonrenewable resources, v. 1, no. 2, p. 125-138.
-! 
+!
 ! Root, D.H., Scott, W.A., Jr., Schruben, P.G., 1998, MARK3B Resource assessment program for Macintosh:
 ! U.S. Geological Survey, Open-file report 98-356.
 
@@ -81,9 +81,9 @@
     integer, intent(in out), dimension(sizeND) :: ND
     integer, intent(out) :: status
     real(kind=8), intent(out), dimension(sizeXX) :: XX
-    
+
     real(kind=8), dimension(10) :: D
-    real(kind=8), dimension(9) :: DISTP 
+    real(kind=8), dimension(9) :: DISTP
     real(kind=8) :: DUM
     integer :: I, L, IDUM, error
 
@@ -94,7 +94,7 @@
 !   When INOD = 7, the first 7 elements of DISTP are used.
 !   When INOD = 9, all 9 elements of DISTP are used.
     DISTP = [ 0.90, 0.50, 0.10, 0.05, 0.01, 0.005, 0.001, 0.0005, 0.0001 ]
-    
+
     status = 0
     if( INOD /= 3 .AND. INOD /= 5 .AND. INOD /= 7 .AND. INOD /= 9 ) status = 1
 
@@ -104,7 +104,7 @@
         if( nd(i) > nd(i+1) ) error = 10
     end do
     if( error == 10 ) status = status + 10
-    
+
     if( status /= 0 ) return
 
 20    ND(1) = 0
@@ -142,33 +142,33 @@
       RETURN
       END
 
-! Mark4Pmf
-! 
-! Description: Calculates a probability distribution for the number of deposits, using an 
+! Mark3RevisedPmf
+!
+! Description: Calculates a probability distribution for the number of deposits, using an
 ! algorithm developed and implemented by Jeffery D. Phillips.
 !
 ! Arguments:
 ! ND()      Lists the thresholds for the calculated a probability distribution (see Details).
-! sizeND    Size of vector ND 
+! sizeND    Size of vector ND
 ! INOD      Number of specified thresholds. The only allowed values are 3, 5, 7, and 9.
 ! maxd      Maximum number of deposits for which the probability is non-zero.
 ! XX()      Lists the calculated probabilities.
 ! sizeXX    Size of vector XX.
 ! status    Indicates whether any of the input varibables are incorrect (see Details).
 !
-! Details: 
+! Details:
 ! The algorithm is based on the following three criteria:
 ! 1. The calculated probabilities should be as close as possible to the specified probabalities. (See the
 ! table below.
-! 2. The maximum number of deposits will be maxd. 
+! 2. The maximum number of deposits will be maxd.
 ! 3. The probabilities between the specified quantilies will be constant. This criterion requires
-! qualification, which will be presented with an example: Assume that INOD is 3, ND(3) is 5 and ND(4) is 9. 
+! qualification, which will be presented with an example: Assume that INOD is 3, ND(3) is 5 and ND(4) is 9.
 ! Then, when the number of deposits is 6, 7, or 8, the associated probabilities will be equal (and hence
 ! constant).
 !
 ! The configurations for ND depends on INOD:
 !
-!                                      Description 
+!                                      Description
 !    Element    INOD = 3                   INOD = 5                   INOD = 7                   INOD = 9
 !    ND(1)      not used                   not used                   not used                   not used
 !    ND(2)      P( N >= ND(2) ) = 0.9      P( N >= ND(2) ) = 0.9      P( N >= ND(2) ) = 0.9      P( N >= ND(2) ) = 0.9
@@ -186,22 +186,22 @@
 ! deposits. The elements of ND must be nondecreasing. For example,
 ! if INOD is 3, then ND(2) <= ND(3) <= ND(4). Although it seems that the elements of ND should
 ! be strictly increasing, this is not required by the algorithm. The size of ND must be at least
-! INOD+1. 
+! INOD+1.
 !
 ! If ND(2) is specified as 0, then, according to the previous definition, P( N >= 0 ) = 0.9. Of course,
-! this is wrong because P( N >= 0 ) = 1. To address this problem, the algorithm is implemented such that 
-! P( N >= 1 ) < 0.9. 
+! this is wrong because P( N >= 0 ) = 1. To address this problem, the algorithm is implemented such that
+! P( N >= 1 ) < 0.9.
 !
 ! The configuration of XX is:
 !
-!    Element              Probability of having 
+!    Element              Probability of having
 !    XX(1)                0 deposits
 !    XX(2)                1 deposit
 !    XX(3)                2 deposits
-!    ...                            
+!    ...
 !    XX( maxd+1 )         maxd deposits
 !
-! maxd must be greater than or equal to ND(INOD+1). The size of XX must be at least maxd+1. (One is added 
+! maxd must be greater than or equal to ND(INOD+1). The size of XX must be at least maxd+1. (One is added
 ! because the first element of XX is the probability of zero deposits.
 !
 ! If status equals 1, then INOD is not 3, 5, or 9. (Error 1)
@@ -213,19 +213,19 @@
 ! If status equals 111, then Errors 1, 2 and 3 occured.
 !
 ! Dates: 2011, Jeffrey D. Phillips, written.
-!        30 Jan 2012, Karl J. Ellefsen: Adapted for use in a dll 
+!        30 Jan 2012, Karl J. Ellefsen: Adapted for use in a dll
 !
 ! References:
 ! Currently none.
 
-    subroutine Mark4Pmf( ND, sizeND, INOD, maxd, XX, sizeXX, status )
+    subroutine Mark3RevisedPmf( ND, sizeND, INOD, maxd, XX, sizeXX, status )
 
     implicit none
     integer, intent(in) :: sizeXX, sizeND, INOD, maxd
     integer, intent(in), dimension(sizeND) :: ND
     integer, intent(out) :: status
     real(kind=8), intent(out), dimension(sizeXX) :: XX
-    
+
     real(kind=8) :: frac1
     integer :: I, error
 
@@ -238,9 +238,9 @@
         if( nd(i) > nd(i+1) ) error = 10
     end do
     if( error == 10 ) status = status + 10
-    
+
     if( maxd < ND(INOD+1) ) status = status + 100
-    
+
     if( status /= 0 ) return
 
 
@@ -262,7 +262,7 @@
         do i=nd(inod+1)+1,maxd+1
           xx(i)=frac1/float(maxd+1-nd(inod+1))
         enddo
-      else     
+      else
         xx(nd(inod+1)+1)=frac1
       endif
       if(inod.eq.9) then

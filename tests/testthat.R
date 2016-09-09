@@ -1,5 +1,5 @@
 library(testthat)
-library(ProMinerCore)
+library(MapMark4)
 
 test_file("testhat\\testMetaData.R")
 test_file("testhat\\testNDepositsPmf.R")

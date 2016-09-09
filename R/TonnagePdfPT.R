@@ -27,23 +27,29 @@ getRandomSamples.TonnagePdfPT <- function(object) {
   return(object$rs)
 }
 
-#' @title Plot the univariate, marginal pdfs for the material tonnages in
+#' @title Plot the univariate, marginal pdfs and ccdfs for the
+#' material tonnages in
 #' all undiscovered deposits within the permissive tract
 #'
 #' @description Plot the unvariate, marginal probability density
-#' functions (pdfs)
+#' functions (pdfs) and complementary cumulative distribution functions
+#' (ccdfs)
 #' for the material tonnages in all undiscovered deposits within
 #' the permissive tract.
 #'
 #' @param object
-#' An object of class "TonnagePdf1".
+#' An object of class "TonnagePdfPT".
 #'
-#' @param whichMatTonnage
-#' Character vector comprising the names of the materials that will be included
-#' in the plot.
+#' @param adjust
+#' Smoothing used to calculate the pdfs.
 #'
 #' @param isUsgsStyle
 #' Make the plot format similar to the U.S. Geological Survey style
+#'
+#' @details
+#' Argument adjust is scaling applied to the bandwidth of the kernel density
+#' estimate, which is calculated with R function density. As adjust increases,
+#' the pdf becomes smoother.
 #'
 #' @examples
 #' pmf <- NDepositsPmf( "NegBinomial", list(theMean=5,theStdDev=4), "" )
@@ -53,21 +59,15 @@ getRandomSamples.TonnagePdfPT <- function(object) {
 #'
 #' @export
 #'
-plot.TonnagePdfPT <- function(object,
-                             whichMatTonnage = object$matNames,
-                             isUsgsStyle = TRUE) {
+plot.TonnagePdfPT <- function(object, adjust = 2, isUsgsStyle = TRUE) {
 
-  for(i in 1:length(whichMatTonnage)) {
-    if(!any(whichMatTonnage[i] == object$matNames)) {
-      stop( sprintf( "Function plot.TonnagePdfPT\n" ),
-            sprintf( "Argument whichMatTonnage must match one of the.\n" ),
-            sprintf( "materials. The mismatched name is %s\n",
-                     whichMatTonnage[i]),
-            call. = FALSE )
-    }
+  if(isUsgsStyle) {
+    xLabel <- paste("Tonnage, in ", object$units, sep = "")
+  } else {
+    xLabel <- paste("Tonnage (", object$units, ")", sep = "")
   }
 
-  rsTonnage <- object$rs[, whichMatTonnage, drop = FALSE]
+  rsTonnage <- object$rs[, -1, drop = FALSE] # omit the column with the number of deposits
   nPdfs <- ncol( rsTonnage )
   nSamples <- nrow( rsTonnage )
   countZeros <- unname(colSums(rsTonnage == 0))
@@ -79,17 +79,20 @@ plot.TonnagePdfPT <- function(object,
           stop( sprintf( "Function plot.TonnagePdf1\n" ),
                 sprintf( "Number of zeros must be equal for all materials\n" ),
                 sprintf( "Material: %s  Number of zeros: %d\n",
-                         whichMatTonnage[j1], countZeros[j1] ),
+                         colnames(rsTonnage)[j1], countZeros[j1] ),
                 sprintf( "Material: %s  Number of zeros: %d\n",
-                         whichMatTonnage[j2], countZeros[j2] ),
+                         colnames(rsTonnage)[j2], countZeros[j2] ),
                 call. = FALSE )
         }
       }
     }
   }
 
-  rsTonnage[rsTonnage == 0] <- NA
-  rsLogTonnage <- log10(rsTonnage)
+  # pdf
+
+  rsTonnage1 <- rsTonnage
+  rsTonnage1[rsTonnage1 == 0] <- NA
+  rsLogTonnage <- log10(rsTonnage1)
 
   probZero <- countZeros[1] / nSamples
 
@@ -98,22 +101,16 @@ plot.TonnagePdfPT <- function(object,
   theRange[1] <- theRange[1] - margin
   theRange[2] <- theRange[2] + margin
 
-  df <- NULL
+  df <- data.frame()
   for( j in 1:nPdfs ) {
 
     tmp1 <- density( rsLogTonnage[, j],
                     from = theRange[1], to = theRange[2], na.rm = TRUE)
 
-    tmp2 <- data.frame( Material = rep.int(whichMatTonnage[j], length(tmp1$y)),
+    tmp2 <- data.frame( Material = rep.int(colnames(rsTonnage)[j], length(tmp1$y)),
                         Tonnage = 10^tmp1$x,
                         Density = tmp1$y * ( 1 - probZero ))
     df <- rbind(df, tmp2)
-  }
-
-  if(isUsgsStyle) {
-    xLabel <- paste("Tonnage, in ", object$units, sep = "")
-  } else {
-    xLabel <- paste("Tonnage (", object$units, ")", sep = "")
   }
 
   caption <- paste( "Prob of zero tonnage = ",
@@ -126,10 +123,54 @@ plot.TonnagePdfPT <- function(object,
                        data = data.frame(x = min(df$Tonnage), y = 0),
                        hjust = 0, vjust = 1)
 
-  if(isUsgsStyle)
-    p <- p + ggplot2::theme_bw()
+  if(isUsgsStyle) {
+    p <- p + ggplot2::theme_bw()+
+      ggplot2::ggtitle("A") +
+      ggplot2::theme(plot.title = ggplot2::element_text(hjust = 0,
+                                                        face = "italic"))
+  } else {
+    p <- p + ggplot2::ggtitle("(a)") +
+      ggplot2::theme(plot.title = ggplot2::element_text(hjust = 0))
+  }
 
-  plot(p)
+  # ccdf
+
+  df2 <- data.frame()
+  for( j in 1:nPdfs ) {
+
+    x <- rsTonnage[, j]
+    y <- 1.0 - ecdf(x)(x)
+
+    areZero <- x == 0
+    x <- x[!areZero]
+    y <- y[!areZero]
+
+    tmp <- data.frame( Material = rep.int(colnames(rsTonnage)[j], length(y)),
+                      Tonnage = x,
+                      Probability = y)
+    df2 <- rbind(df2, tmp)
+  }
+
+  q <- ggplot2::ggplot(df2) +
+    ggplot2::geom_hline(yintercept = 1-probZero, colour = "gray65") +
+    ggplot2::geom_line(ggplot2::aes(x = Tonnage, y = Probability, colour = Material)) +
+    ggplot2::scale_x_continuous(name = xLabel, trans = "log10") +
+    ggplot2::scale_y_continuous(limits = c(0,1))
+
+  if(isUsgsStyle) {
+    q <- q + ggplot2::theme_bw()+
+      ggplot2::ggtitle("B") +
+      ggplot2::theme(plot.title = ggplot2::element_text(hjust = 0,
+                                                        face = "italic"))
+  } else {
+    q <- q + ggplot2::ggtitle("(b)") +
+      ggplot2::theme(plot.title = ggplot2::element_text(hjust = 0))
+  }
+
+  grid::grid.newpage()
+  grid::pushViewport(grid::viewport(layout=grid::grid.layout(1,2)))
+  plot(p, vp=grid::viewport(layout.pos.row=1, layout.pos.col=1))
+  plot(q, vp=grid::viewport(layout.pos.row=1, layout.pos.col=2))
 
 }
 
@@ -212,13 +253,13 @@ plotMatrix.TonnagePdfPT <- function(object, nPlotSamples = 1000,
         # diagonal
         matName <- colnames(d)[i]
         p <- ggplot2::ggplot() +
-          ggplot2::geom_histogram(ggplot2::aes_string(x = matName),
+          ggplot2::geom_histogram(ggplot2::aes_string(x = matName, y = "..density.."),
                                   data = d, bins = 15,
                                   alpha = 0.3, colour = "white",
                                   fill = "blue") +
           ggplot2::scale_x_continuous(name = paste( matName, tLabel, sep = " "),
                                       trans = "log10") +
-          ggplot2::scale_y_continuous(name = "", breaks = NULL)
+          ggplot2::scale_y_continuous(name = "Density")
       } else if (j < i) {
         # lower triangle
         xMatName <- colnames(d)[j]

@@ -26,8 +26,8 @@ test_that("Pmf B in Tables 3 and 4 of Root, Menzie, and Scott is reproduced",{
 
 })
 
-test_that("Mark4 pmf is reproduced",{
-  pmf <- getNDepositPmf(NDepositsPmf("Mark4",
+test_that("Mark3Revised pmf is reproduced",{
+  pmf <- getNDepositPmf(NDepositsPmf("Mark3Revised",
                        list(thresholds = c(1, 7, 20),
                             maxNumberOfDeposits = 23), ""))
   expect_equal( nrow(pmf), 24 )
