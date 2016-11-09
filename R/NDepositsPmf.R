@@ -302,7 +302,7 @@ CalcDebugPmf <- function( nDeposits, relProbabilities ) {
 #' @param isMeanPlotted
 #' Logical variable indicating whether the mean is plotted on the pmf.
 #'
-#' @param barWidth
+#' @param barwidth
 #' Width of the bars, which represent the probabilities for the numbers of
 #' undiscovered deposits.
 #'

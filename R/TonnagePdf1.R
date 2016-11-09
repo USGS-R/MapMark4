@@ -376,12 +376,19 @@ plotMatrix.TonnagePdf1 <- function(object, nPlotSamples = 1000,
 }
 
 
-#' @title Summarize the pdf for the material tonnages in one undiscovered
-#' deposit
+#' @title Summary comparison of the pdf for the material tonnages in one
+#' undiscovered deposit and the known material tonnages in the discovered
+#' deposits
 #'
-#' @description Summarize the probability density function (pdf) for the
-#' material tonnages in one undiscovered deposit within the permissive
-#' tract.
+#' @description Using summary statistics, this function compares
+#' the probability density function (pdf)
+#' for the material tonnages in one
+#' undiscovered deposit and the known material tonnages in the discovered
+#' deposits. The pdf is represented by random samples drawn from it.
+#' The summary statistics are minimum, 0.25 quantile, median,
+#' mean, 0.75 quantile, maximum, standard deviation, and correlation matrix.
+#' The comparison is involves both the log-transformed material tonnages
+#' and the untransformed material tonnages.
 #'
 #' @param object
 #' An object of class "TonnagePdf1"
@@ -390,11 +397,18 @@ plotMatrix.TonnagePdf1 <- function(object, nPlotSamples = 1000,
 #' Number of signficant digits.
 #'
 #' @details
-#' It is common that the summary statistics for the known material
-#' tonnages differ somewhat from the summary statistics for the pdf, especially
-#' when the pdf is truncated. The reason for the difference is that tonnages
-#' typically have an enormous range, making the summary statistics somewhat
-#' non-robust.
+#' It is common that the corresponding statistics differ somewhat. For
+#' statistics calculated with log-transformed material tonnages, the differences
+#' should be small. There are two, possible exceptions:
+#' The minimum and the maximum might differ a lot, if the pdf is not
+#' truncated (see function TonnagePdf1).
+#' These statistics are particularly important because the pdf is fit to the
+#' log-transformed material tonnages from the discovered deposits.
+#'
+#' For statistics calculated with untransformed material tonnages, the
+#' differences between corresponding statistics may be large. The reason is
+#' that the pdf is fit to the log-transformed material tonnages, not the
+#' untransformed material tonnages (which would be too difficult).
 #'
 #' @examples
 #' pdf1 <- TonnagePdf1(ExampleTonnageData, "mt")
@@ -402,10 +416,25 @@ plotMatrix.TonnagePdf1 <- function(object, nPlotSamples = 1000,
 #'
 #' @export
 #'
-summary.TonnagePdf1 <- function(object, nDigits = 2) {
+summary.TonnagePdf1 <- function(object, nDigits = 3) {
 
-  cat(sprintf("Summary of the pdf for the material tonnages in one\n"))
-  cat(sprintf("undiscovered deposit within the permissive tract.\n"))
+  PrintStat <- function(x, y, nDigits, FUNC, ...){
+    tmp <- cbind(apply(x, 2, FUNC, ...), apply(y, 2, FUNC, ...))
+    colnames(tmp) <- c("Known", "Pdf")
+    print(signif(tmp, digits = nDigits))
+  }
+
+  PrintCor <- function(x, y, nDigits){
+    tmp <- cor(x)
+    tmp1 <- cor(y)
+    tmp[lower.tri(tmp)] <- tmp1[lower.tri(tmp1)]
+    diag(tmp) <- NA
+    print(signif(tmp, digits = nDigits))
+  }
+
+  cat(sprintf("Summary comparison of the pdf for the material tonnages in\n"))
+  cat(sprintf("one undiscovered deposit and the known material tonnages\n"))
+  cat(sprintf("in the discovered deposits.\n"))
   cat(sprintf("------------------------------------------------------------\n"))
   cat( sprintf( "Units for material tonnage: %s\n", object$units ))
   cat( sprintf( "Pdf type: %s\n", object$pdfType ))
@@ -429,87 +458,77 @@ summary.TonnagePdf1 <- function(object, nDigits = 2) {
     cat(sprintf("Sum of deviances = %g\n", object$sumDeviance))
   }
 
-  cat( sprintf( "\n\n"))
-  cat( sprintf( "Summary statistics for the known material tonnages\n" ))
-  cat( sprintf( "in the discovered deposits:\n" ))
-  print(summary(object$knownTonnages[, -1, drop = FALSE]))
-  cat( sprintf( "\n"))
-  cat( sprintf( "Summary statistics for the pdf:\n" ))
-  print(summary(object$rs))
+  cat( sprintf( "\n###############################################################\n"))
+  cat( sprintf( "This section pertains to the log-transformed material tonnages.\n"))
+
+  logRs <- log(object$rs)
+
+  cat( sprintf( "\nMean\n" ))
+  PrintStat(object$logTonnages, logRs, nDigits, mean)
+
+  cat( sprintf( "\nStandard deviation\n" ))
+  PrintStat(object$logTonnages, logRs, nDigits, sd)
+
+  cat( sprintf( "\nMinimum\n" ))
+  PrintStat(object$logTonnages, logRs, nDigits, min)
+
+  cat( sprintf( "\n0.25 quantile\n" ))
+  PrintStat(object$logTonnages, logRs, nDigits, quantile, prob = 0.25)
+
+  cat( sprintf( "\nMedian\n" ))
+  PrintStat(object$logTonnages, logRs, nDigits, median)
+
+  cat( sprintf( "\n0.75 quantile\n" ))
+  PrintStat(object$logTonnages, logRs, nDigits, quantile, prob = 0.75)
+
+  cat( sprintf( "\nMaximum\n" ))
+  PrintStat(object$logTonnages, logRs, nDigits, max)
+
+  cat(sprintf("\nComposite correlation matrix\n" ))
+  PrintCor(object$logTonnages, logRs, nDigits)
+
+  cat( sprintf( "\n###############################################################\n"))
+  cat( sprintf( "This section pertains to the (untransformed) material tonnages.\n"))
+
+  knownTonnages <- object$knownTonnages[, -1, drop = FALSE]
+
+  cat( sprintf( "\nMean\n" ))
+  PrintStat(knownTonnages, object$rs, nDigits, mean)
+
+  cat( sprintf( "\nStandard deviation\n" ))
+  PrintStat(knownTonnages, object$rs, nDigits, sd)
+
+  cat( sprintf( "\nMinimum\n" ))
+  PrintStat(knownTonnages, object$rs, nDigits, min)
+
+  cat( sprintf( "\n0.25 quantile\n" ))
+  PrintStat(knownTonnages, object$rs, nDigits, quantile, prob = 0.25)
+
+  cat( sprintf( "\nMedian\n" ))
+  PrintStat(knownTonnages, object$rs, nDigits, median)
+
+  cat( sprintf( "\n0.75 quantile\n" ))
+  PrintStat(knownTonnages, object$rs, nDigits, quantile, prob = 0.75)
+
+  cat( sprintf( "\nMaximum\n" ))
+  PrintStat(knownTonnages, object$rs, nDigits, max)
+
+  cat(sprintf("\nComposite correlation matrix\n" ))
+  PrintCor(knownTonnages, object$rs, nDigits)
+
+  cat( sprintf( "\n###############################################################\n"))
 
   cat(sprintf("\n\n"))
   cat(sprintf("Explanation\n"))
-  cat(sprintf("\"1st Qu.\" refers to the first quartile.\n"))
-  cat(sprintf("\"3rd Qu.\" refers to the third quartile.\n"))
-  cat(sprintf("\n\n\n\n"))
-
-
-}
-
-#' @title Print checks of the
-#' pdf for the material tonnages in one undiscovered
-#' deposit
-#'
-#' @description Print checks of the
-#' probability density function (pdf) for the
-#' material tonnages in one undiscovered deposit within the permissive
-#' tract. Summary statistics are calculated for both
-#' the known material tonnages and the pdf that represents those tonnages.
-#'
-#' @param object
-#' An object of class "TonnagePdf1"
-#'
-#' @param nDigits
-#' Number of signficant digits.
-#'
-#' @details
-#' The statistics for the pdf are calculated from
-#' random samples of that pdf.
-#'
-#' It is common that the statistics for the known material
-#' tonnages differ somewhat from the statistics for the pdf, especially
-#' when the pdf is truncated. The reason for the difference is that tonnages
-#' typically have an enormous range, making the statistics somewhat
-#' non-robust.
-#'
-#' @examples
-#' pdf1 <- TonnagePdf1(ExampleTonnageData, "mt", pdfType = "empirical")
-#' printChecks(pdf1)
-#'
-#' @export
-#'
-printChecks.TonnagePdf1 <- function(object, nDigits = 3) {
-
-  cat( sprintf( "Units for material tonnage: %s\n", object$units ))
-
-  cat( sprintf( "\n\n"))
-  cat( sprintf( "Mean vectors for material tonnages:\n" ))
-  tmp <- cbind(object$theKnownMean, object$theMean)
-  colnames(tmp) <- c("Known", "Pdf")
-  print(signif(tmp, digits = nDigits))
-
-  cat( sprintf( "\n\n"))
-  cat( sprintf( "Standard deviation vectors for material tonnages:\n" ))
-  tmp <- cbind(object$theKnownSd, object$theSd)
-  colnames(tmp) <- c("Known", "Pdf")
-  print(signif(tmp, digits = nDigits))
-
-  cat(sprintf( "\n\n"))
-  cat(sprintf("Composite correlation matrix\n" ))
-  tmp <- object$theKnownCor
-  tmp[lower.tri(tmp)] <- object$theCor[lower.tri(object$theCor)]
-  diag(tmp) <- NA
-  print(signif(tmp, digits = nDigits))
-  cat(sprintf("\nExplanation\n" ))
-  cat(sprintf("1. The upper triangle of the composite correlation is\n"))
-  cat(sprintf("the upper triangle of the correlation matrix for the\n"))
-  cat(sprintf("known material tonnages in the discovered deposits.\n"))
-  cat(sprintf("2. The lower triangle of the composite correlation is\n" ))
-  cat(sprintf("the lower triangle of the correlation matrix for the\n"))
-  cat(sprintf("material tonnages that are represented by the pdf.\n"))
-  cat(sprintf("3. If the number of materials is 1, then the\n"))
+  cat(sprintf("1. The composite correlation matrix has two parts: its upper\n"))
+  cat(sprintf("triangle and its lower triangle. The upper triangle pertains\n"))
+  cat(sprintf("to the (log-transformed/untransformed) known material\n"))
+  cat(sprintf("tonnages in the discovered deposits. The lower triangle\n" ))
+  cat(sprintf("pertains to the (log-transformed/untransformed) material\n"))
+  cat(sprintf("tonnages that are represented by the pdf.\n"))
+  cat(sprintf("2. If the number of materials is 1, then the\n"))
   cat(sprintf("composite correlation matrix is irrelevant.\n"))
-
+  cat(sprintf("\n\n"))
 
 }
 
