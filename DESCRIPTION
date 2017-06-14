@@ -4,9 +4,7 @@ Title: Probability calculations for three-part mineral resource assessments
 Version: 1.0
 Date: 2016-06-01
 Authors@R: c( person("Karl", "Ellefsen", email = "ellefsen@usgs.gov",
-            role = c("aut", "cre")),
-            person("Jeffery", "Phillips", email = "dsmith@usgs.gov",
-            role = c("aut")))
+            role = c("aut", "cre")))
 Description: MapMark4 is a software package that carries out
     the probability calculations for three-part
     mineral resource assessments. This package provide the core (essential)
@@ -27,12 +25,10 @@ Depends:
 License: CC0
 LazyData: TRUE
 Imports:
+    compositions,
     mvtnorm,
     ks,
-    misc3d,
-    rgl,
-    ggplot2 (>= 2.1.0),
-    reshape2
+    ggplot2 (>= 2.1.0)
 Suggests:
     knitr,
     rmarkdown,

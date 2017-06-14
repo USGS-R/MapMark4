@@ -1,283 +1,168 @@
-# The function argument(s) is (are) defined in the documentation for
+
+
+# The function arguments are defined in the documentation for
 # function NDepositsPmf.
 #
-#' @useDynLib MapMark4
-#'
-CalcMark3Pmf <- function( thresholds ){
+CalcNegBinomialPmf <- function( nDepEst,
+                                nGridPoints = 40,
+                                power = 1.0,
+                                isOptimized = TRUE,
+                                probRightTail = 0.001 ){
 
-  # These variables are used in fortran subroutine Mark3Pmf, so they are used here too.
-  ND <- as.integer( c( 0, thresholds ) )
-  sizeND <- length( ND )
-  INOD <- length( thresholds )
-  XX <- vector( mode="numeric", length=(ND[INOD+1]+1) )
-  sizeXX <- length( XX )
-  status <- 0
+  CheckInput <- function(df){
 
-  if( INOD != 3 && INOD != 5 && INOD != 7 && INOD != 9 ) {
-    stop( sprintf( "Function CalcMark3Pmf\n" ),
-          sprintf( "The number of thresholds must be 3, 5, 7, or 9.\n" ),
-          sprintf( "But the actual number is %d.\n", INOD ),
-          call. = FALSE )
+    colNames <- c("Name", "Weight", "N90", "N50", "N10")
+    if(any(colnames(df) != colNames)){
+      stop( sprintf( "Dataframe with the number of deposit estimates has\n"),
+            sprintf( "one or more incorrect column names.\n"),
+            sprintf( "The column names must be \"Name Weight N90 N50 N10\".\n"),
+            call. = FALSE )
+    }
+
+    if(any(is.na(df))){
+      stop( sprintf( "Dataframe with the number of deposit estimates has\n"),
+            sprintf( "one or more missing entries.\n"),
+            call. = FALSE )
+    }
+    if(any(df[, -1] < 0)){
+      stop( sprintf( "Dataframe with the number of deposit estimates has\n"),
+            sprintf( "one or more negative values.\n"),
+            call. = FALSE )
+    }
+    for(i in 1:nrow(df)){
+      if(!(df[i, "N90"] <= df[i, "N50"] && df[i, "N50"] <= df[i, "N10"])){
+        stop( sprintf( "Row %4d of dataframe with the number of deposit\n", i),
+              sprintf( "estimates is mis-ordered.\n"),
+              call. = FALSE )
+      }
+    }
+
   }
 
-  if( any( diff( ND ) < 0 ) ) {
-    stop( sprintf( "Function CalcMark3Pmf\n" ),
-          sprintf( "The specified thresholds must be in non-decreasing order.\n" ),
-          call. = FALSE )
+  CalcParms <- function(nDepEst, nGridPoints, power, isOptimized){
+
+    fn <- function(params, nDepEst, power){
+
+      prevOp <- options(warn = -1)
+
+      theProb <- params[1]
+      theSize <- params[2]
+      nDeposits <- qnbinom(c(0.90, 0.50, 0.10), size = theSize,
+                           prob = theProb, lower.tail = FALSE)
+      cost <- 0.0
+      for(k in 1:nrow(nDepEst)){
+        absDiff <- abs(nDeposits - nDepEst[k, c("N90", "N50", "N10")])
+        currentCosts <- nDepEst[k, "Weight"] * (absDiff)^power
+        cost <- cost + sum(currentCosts)
+      }
+
+      options(prevOp)
+
+      return(cost)
+    }
+
+    lowBnd <- sum(nDepEst$N90 * nDepEst$Weight) / sum(nDepEst$Weight)
+    upBnd <- sum(nDepEst$N10 * nDepEst$Weight) / sum(nDepEst$Weight)
+
+    mean_seq <- seq(from = lowBnd + 0.01, to = upBnd, length.out = nGridPoints)
+
+    sdMax <- upBnd - lowBnd
+    varMax <- sdMax^2
+
+    cost <- matrix(0, nrow = nGridPoints, ncol = nGridPoints)
+    theProb <- matrix(NA_real_, nrow = nGridPoints, ncol = nGridPoints)
+    theSize <- matrix(NA_real_, nrow = nGridPoints, ncol = nGridPoints)
+
+    for(i in 1:nGridPoints){
+
+      var_seq <- seq(from = mean_seq[i] + 0.01,
+                     to = varMax,
+                     length.out = nGridPoints)
+
+      for(j in 1:nGridPoints){
+
+        theProb[i,j] = mean_seq[i] / var_seq[j]
+        theSize[i,j] <- mean_seq[i] * theProb[i,j] / (1 - theProb[i,j])
+
+        cost[i,j] <- fn(c(theProb[i,j], theSize[i,j]), nDepEst, power)
+      }
+    }
+
+    index <- which.min(cost)
+    j <- index %/% nGridPoints + 1
+    i <- index - (j-1) * nGridPoints
+
+    if(isOptimized){
+      tmp <- optim(c(theProb[i,j], theSize[i,j]), fn, NULL, nDepEst, power)
+      if(tmp$convergence > 0){
+        stop( sprintf( "Optimization failed\n"),
+              call. = FALSE )
+      } else{
+        result <- list(theProb = tmp$par[1], theSize = tmp$par[2])
+      }
+    } else {
+      result <- list(theProb = theProb[i,j], theSize = theSize[i,j])
+    }
+
+    return(result)
   }
 
-  tmp <- .Fortran( "Mark3Pmf", as.integer(ND), as.integer(sizeND), as.integer(INOD),
-                   as.double(XX), as.integer(sizeXX), as.integer(status) )
 
-  if( tmp[[6]] != 0 ) {
-    stop( sprintf( "Function CalcMark3Pmf\n" ),
-          sprintf( "Fortran subroutine Mark3Pmf failed.\n" ),
-          sprintf( "Status = %d\n", tmp[[6]] ),
-          call. = FALSE )
-  }
+  CheckInput(nDepEst)
 
-  specifiedAccdf <- (c( 0.90, 0.50, 0.10, 0.05, 0.01, 0.005, 0.001, 0.0005, 0.0001 ))[1:INOD]
+  nDepEst$Name <- NULL
 
-  probs <- tmp[[4]]
-  nDeposits <- 0:(length(probs)-1)
+  # Remove the estimates with zero weight
+  nDepEst <- nDepEst[nDepEst$Weight > 0, ]
 
-  return( list( nDeposits=nDeposits,
-                probs=probs,
-                specifiedAccdf=specifiedAccdf ) )
+  params <- CalcParms(nDepEst, nGridPoints, power, isOptimized)
 
+  # x is the upper trunation point. The upper truncation point is the
+  # quantile above which the sum of the probabilities is less than (or equal to)
+  # probRightTail.
+  x <- qnbinom( 1-probRightTail, size = params$theSize, prob = params$theProb )
+
+  # Now compute the lower truncation point, if any.
+  # The lower truncation point is that quantile at which the probability is
+  # less than (or equal to) the probability at the upper truncation point.
+  nDeposits <- 0:x
+  pmf <- dnbinom( nDeposits, size = params$theSize, prob = params$theProb )
+
+  areTooSmall <- (pmf < pmf[length(pmf)])
+  nDeposits <- nDeposits[!areTooSmall]
+  pmf <- pmf[!areTooSmall]
+
+  # Normalize the pmf so that it sums to 1.
+  pmf <- pmf/sum(pmf)
+
+  return( list( nDeposits = nDeposits, probs = pmf ) )
 }
 
-# The function argument(s) is (are) defined in the documentation for
+# The function arguments are defined in the documentation for
 # function NDepositsPmf.
 #
-#' @useDynLib MapMark4
-#'
-CalcMark3RevisedPmf <- function( thresholds, maxNumberOfDeposits ){
-
-  # These variables are used in fortran subroutine Mark3RevisedPmf, so they are used here too.
-  ND <- as.integer( c( 0, thresholds ) )
-  sizeND <- length( ND )
-  INOD <- length( thresholds )
-  maxd <- maxNumberOfDeposits
-  XX <- vector( mode="numeric", length=(maxd+1) )
-  sizeXX <- length( XX )
-  status <- 0
-
-  if( INOD != 3 && INOD != 5 && INOD != 7 && INOD != 9 ) {
-    stop( sprintf( "Function CalcMark3RevisedPmf\n" ),
-          sprintf( "The number of thresholds must be 3, 5, 7, or 9.\n" ),
-          sprintf( "But the actual number is %d.\n", INOD ),
-          call. = FALSE )
-  }
-
-  if( any( diff( ND ) < 0 ) ) {
-    stop( sprintf( "Function CalcMark3RevisedPmf\n" ),
-          sprintf( "The specified thresholds must be in non-decreasing order.\n" ),
-          call. = FALSE )
-  }
-
-  if( maxd < tail( thresholds, n=1 ) ) {
-    stop( sprintf( "Function CalcMark3RevisedPmf\n" ),
-          sprintf( "The maximum number of deposits must be >= %d\n", tail( thresholds, n=1 ) ),
-          sprintf( "But the actual number is %d.\n", maxd ),
-          call. = FALSE )
-  }
-
-
-  tmp <- .Fortran( "Mark3RevisedPmf", as.integer(ND), as.integer(sizeND), as.integer(INOD), as.integer(maxd),
-                   as.double(XX), as.integer(sizeXX), as.integer(status) )
-
-  if( tmp[[7]] != 0 ) {
-    stop( sprintf( "Function CalcMark3RevisedPmf\n" ),
-          sprintf( "Fortran subroutine Mark3RevisedPmf failed.\n" ),
-          sprintf( "Status = %d\n", tmp[[7]] ),
-          call. = FALSE )
-  }
-
-  specifiedAccdf <- (c( 0.90, 0.50, 0.10, 0.05, 0.01, 0.005, 0.001, 0.0005, 0.0001 ))[1:INOD]
-
-  probs <- tmp[[5]]
-  nDeposits <- 0:(length(probs)-1)
-
-  return( list( nDeposits=nDeposits,
-                probs=probs,
-                specifiedAccdf=specifiedAccdf ) )
-
-}
-
-
-# The function argument(s) is (are) defined in the documentation for
-# function NDepositsPmf.
-#
-CalcPoissonPmf <- function( theMean, relProbabilityThreshold=0.001 ) {
-
-  if( theMean <= 0.0 ) {
-    stop( sprintf( "Function CalcPoissonPmf\n" ),
-          sprintf( "The expected number of deposits must be > 0.0\n" ),
-          sprintf( "The actual value is %g)\n", theMean ),
-          call. = FALSE )
-  }
-
-  if( relProbabilityThreshold <= 0.0 || 0.1 < relProbabilityThreshold ) {
-    stop( sprintf( "Function CalcPoissonPmf\n" ),
-          sprintf( "Argument relProbabilityThreshold should be within the interval (0.0,0.1]\n" ),
-          sprintf( "The actual value is %g)\n", relProbabilityThreshold ),
-          call. = FALSE )
-  }
-
-  # probability at the mode
-  mode.prob <- dpois( floor(theMean), theMean )
-
-  # Why did I define the tail probability in this manner? That is, why not
-  # specify the tail probability directly (e.g., as 0.001). If the mean is
-  # large, then all probabilities in the pmf are small. So, if the
-  # tail probability is specified as 0.001, then the associated quantile might
-  # be very close to the mode. Indeed, if the mean is large enough, then
-  # a value of 0.001 might be greater than the probability of the mode. In
-  # this case, nDepositRange probably (pun intended) could not be be computed.
-  # However, these problems are avoided by using this definition.
-  tail.prob <- relProbabilityThreshold * mode.prob
-
-  # nDepositRange comprises two quantiles. The first quantile defines the left
-  # tail of the pmf for which the probability is less than or equal to
-  # tail.prob. Similarly, the second quantile defines the right tail of the
-  # pmf for which the probability is less than or equal to tail.prob
-  nDepositRange <- qpois( c( tail.prob, 1-tail.prob ), theMean )
-  nDeposits <- nDepositRange[1]:nDepositRange[2]
-
-  tmp <- dpois( nDeposits, theMean )
-  probs <- tmp / sum( tmp )
-
-  return( list( nDeposits=nDeposits, probs=probs ) )
-}
-
-
-# The function argument(s) is (are) defined in the documentation for
-# function NDepositsPmf.
-#
-CalcUserSpecifiedPmf <- function( anchorPts, relProbabilities ){
-
-  if(  length( anchorPts ) < 2 ) {
-    stop( sprintf( "Function CalcUserSpecifiedPmf\n" ),
-          sprintf( "The number of anchorPts must be >= 2.\n" ),
-          sprintf( "But the actual number is %d.\n", length( anchorPts ) ),
-          call. = FALSE )
-  }
-
-  if( length( anchorPts ) != length( relProbabilities ) ) {
-    stop( sprintf( "Function CalcUserSpecifiedPmf\n" ),
-          sprintf( "The length of anchorPts must equal the length of relProbabilities.\n" ),
-          call. = FALSE )
-  }
-
-  if( any( anchorPts < 0 ) ) {
-    stop( sprintf( "Function CalcUserSpecifiedPmf\n" ),
-          sprintf( "All elements of anchorPts must be >= 0.\n" ),
-          call. = FALSE )
-  }
-
-  if( any( diff( anchorPts ) <= 0 ) ) {
-    stop( sprintf( "Function CalcUserSpecifiedPmf\n" ),
-          sprintf( "All elements of anchorPts must be in strictly ascending order.\n" ),
-          call. = FALSE )
-  }
-
-  if( any( relProbabilities < 0.0 ) ) {
-    stop( sprintf( "Function CalcUserSpecifiedPmf\n" ),
-          sprintf( "All elements of relProbabilities must be >= 0.\n" ),
-          call. = FALSE )
-  }
-
-  nDeposits <- anchorPts[1]:anchorPts[length(anchorPts)]
-
-  result <- approx( anchorPts, relProbabilities, nDeposits )
-
-  probs <- result$y / sum( result$y )
-
-  return( list( nDeposits=nDeposits, probs=probs ) )
-}
-
-
-# The function argument(s) is (are) defined in the documentation for
-# function NDepositsPmf.
-#
-CalcNegBinomialPmf <- function( theMean, theStdDev,
-                                relProbabilityThreshold=0.001 ){
-
-  if( theMean <= 0.0 ) {
-    stop( sprintf( "Function CalcNegBinomialPmf\n" ),
-          sprintf( "The expected number of deposits must be > 0.0\n" ),
-          sprintf( "The actual value is %g)\n", theMean ),
-          call. = FALSE )
-  }
-
-  if( theMean >= theStdDev^2 ) {
-    stop( sprintf( "Function CalcNegBinomialPmf\n" ),
-          sprintf( "The expected number of deposits must be < the square of standard deviation.\n" ),
-          call. = FALSE )
-  }
-
-  if( relProbabilityThreshold <= 0.0 || 0.1 < relProbabilityThreshold ) {
-    stop( sprintf( "Function CalcNegBinomialPmf\n" ),
-          sprintf( "Argument relProbabilityThreshold should be within the interval (0.0,0.1]\n" ),
-          sprintf( "The actual value is %g)\n", relProbabilityThreshold ),
-          call. = FALSE )
-  }
-
-  theProb = theMean / theStdDev^2
-  theSize <- theMean * theProb / ( 1 - theProb )
-
-  # The formula for the mode is taken from
-  # https://en.wikipedia.org/wiki/Negative_binomial_distribution. Variable p
-  # maps to 1-theProb.
-  if( theSize <= 1 ) {
-    theMode <- 0
-  } else {
-    theMode <- floor( (1-theProb)*(theSize-1)/theProb )
-  }
-
-  # probability at the mode
-  mode.prob <- dnbinom( theMode, theSize, theProb )
-
-  # The rationale for this definition of the tail probability is
-  # given in function CalcPoissonPmf.
-  tail.prob <- relProbabilityThreshold * mode.prob
-
-  # The meaning of nDepositRange is given in function CalcPoissonPmf
-  nDepositRange <- qnbinom( c( tail.prob, 1-tail.prob ), theSize, theProb )
-  nDeposits <- nDepositRange[1]:nDepositRange[2]
-
-  tmp <- dnbinom( nDeposits, theSize, theProb )
-  probs <- tmp / sum( tmp )
-
-  return( list( nDeposits=nDeposits, probs=probs ) )
-}
-
-# The function argument(s) is (are) defined in the documentation for
-# function NDepositsPmf.
-#
-CalcDebugPmf <- function( nDeposits, relProbabilities ) {
+CalcCustomPmf <- function( nDeposits, relProbabilities ) {
 
   if( length( nDeposits ) != length( relProbabilities ) ) {
-    stop( sprintf( "Function CalcDebugPmf\n" ),
+    stop( sprintf( "Function CalcCustomPmf\n" ),
           sprintf( "The length of nDeposits must equal the length of relProbabilities.\n" ),
           call. = FALSE )
   }
 
   if( any( nDeposits < 0 ) ) {
-    stop( sprintf( "Function CalcDebugPmf\n" ),
+    stop( sprintf( "Function CalcCustomPmf\n" ),
           sprintf( "All elements of nDeposits must be >= 0.\n" ),
           call. = FALSE )
   }
 
   if( any( diff( nDeposits ) <= 0 ) ) {
-    stop( sprintf( "Function CalcDebugPmf\n" ),
+    stop( sprintf( "Function CalcCustomPmf\n" ),
           sprintf( "All elements of nDeposits must be in strictly ascending order.\n" ),
           call. = FALSE )
   }
 
   if( any( relProbabilities < 0.0 ) ) {
-    stop( sprintf( "Function CalcDebugPmf\n" ),
+    stop( sprintf( "Function CalcCustomPmf\n" ),
           sprintf( "All elements of relProbabilities must be >= 0.\n" ),
           call. = FALSE )
   }
@@ -288,13 +173,14 @@ CalcDebugPmf <- function( nDeposits, relProbabilities ) {
 
 }
 
-#' @title Plot the pmf for the number of undiscovered deposits
+#' @title Plot both the pmf and the elicitation percentiles for the number of
+#' undiscovered deposits
 #'
-#' @description Plots the probability mass function (pmf) for the number of
-#' undiscovered deposits in the permissive tract. If the type is Mark3 or
-#' Mark3Revised,
-#' then the alternative complementary cumulative distribution function
-#' is plotted too.
+#' @description Plots both the probability mass function (pmf) and the
+#' elicitation percentiles for the number of
+#' undiscovered deposits in the permissive tract. However, if the pmf type
+#' is Custom, then there are no elicitation percentiles, and, hence,
+#' they are not plotted.
 #'
 #' @param object
 #' An object of class "NDepositsPmf"
@@ -302,37 +188,39 @@ CalcDebugPmf <- function( nDeposits, relProbabilities ) {
 #' @param isMeanPlotted
 #' Logical variable indicating whether the mean is plotted on the pmf.
 #'
-#' @param barwidth
-#' Width of the bars, which represent the probabilities for the numbers of
-#' undiscovered deposits.
+#' @param areLinesAdded
+#' Logical variable indicating whether vertical lines are added to the pmf.
+#' A vertical line is added for each number of an undiscovered deposit, making
+#' it easier to perceive the associated probability mass.
 #'
 #' @param isUsgsStyle
-#' Make the plot format similar to the U.S. Geological Survey style
+#' Make the plot format similar to the U.S. Geological Survey style.
 #'
 #' @details
-#' The alternative complementary cumulative distribution function is
-#' G(x) = Pr( X >= x ) for - infinity < x < infinity. The function G(x) is
-#' defined everywhere on the real line, including between
-#' the integer values of x. However, plotting G(x) to be consistent with
-#' this definition would be confusing to people who are unfamilar with
-#' cumulative distribution functions for discrete random variables.
-#' Consequently, G(x) is plotted only at the integer values of x.
+#' The elicitation percentiles are defined in the User's Guide.
 #'
-#' @references
-#' Grimmett, G., and Stirzaker, D., 2001, Probability and random processes,
-#' 3rd ed., Oxford University Press.
+#' If the range for the horizontal axis is large (for example, 0 to 300) then
+#' the plot of the pmf using bars may appear odd. In this case,
+#' set argument pmfPlotSymbol to "point".
+#'
+#' In the plot of the elicitation percentiles, the count refers to the number
+#' of assessment members who estimated the same number of undiscovered
+#' deposits, for the specified percentile.
 #'
 #' @examples
-#' pmf1 <- NDepositsPmf("Poisson", list(theMean=5), "")
+#' pmf1 <- NDepositsPmf("NegBinomial", list(nDepEst = ExampleDepEst1))
 #' plot(pmf1)
 #'
-#' pmf2 <- NDepositsPmf("Mark3", list(thresholds=c(1,7,20)), "")
+#' pmf2 <- NDepositsPmf("Custom", list(nDeposits = 1, relProbabilities = 1))
 #' plot(pmf2)
 #'
 #' @export
 #'
-plot.NDepositsPmf <- function( object, isMeanPlotted = TRUE,
-                               barwidth = 0.1, isUsgsStyle = TRUE) {
+plot.NDepositsPmf <- function( object,
+                               isMeanPlotted = FALSE,
+                               areLinesAdded = TRUE,
+                               isUsgsStyle = TRUE) {
+
 
   df <- data.frame(nDeposits = object$nDeposits,
                    probs = object$probs)
@@ -343,40 +231,66 @@ plot.NDepositsPmf <- function( object, isMeanPlotted = TRUE,
     p <- p + ggplot2::geom_vline(xintercept = object$theMean, colour = "red")
   }
 
-  p <- p + ggplot2::geom_bar(ggplot2::aes(x = nDeposits, y = probs),
-                      stat = "identity", width = barwidth) +
-    ggplot2::scale_x_continuous("Number of undiscovered deposits",
-                                limits = range(df$nDeposits)+c(-1,1)) +
-    ggplot2::ylab("Probability")
+  if(areLinesAdded){
+    for(i in 1:length(object$nDeposits)){
+      df1 <- data.frame( x = rep.int(object$nDeposits[i], 2),
+                        y = c(0, object$probs[i]))
+      p <- p + ggplot2::geom_line(ggplot2::aes(x = x, y = y), data = df1)
+    }
+  }
 
+  p <- p + ggplot2::geom_point(ggplot2::aes(x = nDeposits, y = probs)) +
+    ggplot2::scale_x_continuous(name = "Number of undiscovered deposits",
+                                limits = range(df$nDeposits) + c(-1,1)) +
+    ggplot2::scale_y_continuous(name = "Probability",
+                                limits = c(0, max(df$probs)))
 
   if(isUsgsStyle)
     p <- p + ggplot2::theme_bw()
 
-  if( !(object$type == "Mark3" || object$type == "Mark3Revised") ) {
-    plot(p)
+  if(object$type == "Custom") {
+    print(p)
   } else {
-    df2 <- data.frame(nDeposits = object$nDeposits,
-                     accdf = object$accdf)
-    df3 <- data.frame(thresholds = object$pmf.args$thresholds,
-                      specifiedAccdf = object$specifiedAccdf)
 
-    q <- ggplot2::ggplot(df2) +
-      ggplot2::geom_point(ggplot2::aes(x = thresholds, y = specifiedAccdf),
-                          data = df3, colour = "red", size = 4) +
-      ggplot2::geom_point(ggplot2::aes(x = nDeposits, y = accdf)) +
-      ggplot2::ylim(0,1) +
-      ggplot2::xlab("Number of undiscovered deposits") +
-      ggplot2::ylab("Probability")
+    df$accdf <- c(1, 1-cumsum(df$probs)[-length(df$probs)])
+
+    a <- table(object$pmf.args$nDepEst$N90)
+    b <- table(object$pmf.args$nDepEst$N50)
+    c <- table(object$pmf.args$nDepEst$N10)
+
+    df2 <- data.frame(nDeposits = c(as.integer(names(a)),
+                                    as.integer(names(b)),
+                                    as.integer(names(c))),
+                      Percentiles = c(rep.int(90, length(a)),
+                                      rep.int(50, length(b)),
+                                      rep.int(10, length(c))),
+                      Sizes = c(as.vector(a),
+                                as.vector(b),
+                                as.vector(c)))
+
+    q <- ggplot2::ggplot() +
+      ggplot2::geom_point(ggplot2::aes(x = nDeposits,
+                                       y = Percentiles,
+                                       size = Sizes),
+                          data = df2, colour = "red", shape = 1, stroke = 1.1) +
+      ggplot2::geom_point(ggplot2::aes(x = nDeposits,
+                                       y = accdf * 100),
+                          data = df) +
+      ggplot2::scale_y_continuous(name = "Elicitation percentiles", limits = c(0,100),
+                                  breaks = c(0, 10, 50, 90, 100)) +
+      ggplot2::scale_x_continuous(name = "Number of undiscovered deposits") +
+      ggplot2::scale_size(name = "Count", breaks = min(df2$Sizes):max(df2$Sizes))
 
     if(isUsgsStyle)
       q <- q + ggplot2::theme_bw()
 
+    q <- q + ggplot2::theme(legend.position = c(1,1), legend.justification = c(1.1,1.1))
+
     if(isUsgsStyle) {
-      p <- p + ggplot2::ggtitle("A") +
+      p <- p + ggplot2::ggtitle("A.") +
         ggplot2::theme(plot.title = ggplot2::element_text(hjust = 0,
                                                           face = "italic"))
-      q <- q + ggplot2::ggtitle("B") +
+      q <- q + ggplot2::ggtitle("B.") +
         ggplot2::theme(plot.title = ggplot2::element_text(hjust = 0,
                                                           face = "italic"))
     } else {
@@ -405,8 +319,8 @@ plot.NDepositsPmf <- function( object, isMeanPlotted = TRUE,
 #' An object of class "NDepositsPmf"
 #'
 #' @examples
-#' pmf <- NDepositsPmf( "Poisson", list(theMean=5), "" )
-#' summary( pmf )
+#' pmf <- NDepositsPmf("NegBinomial", list(nDepEst = ExampleDepEst1))
+#' summary(pmf)
 #'
 #' @export
 #'
@@ -420,41 +334,18 @@ summary.NDepositsPmf <- function( object) {
   cat( sprintf( "Mean: %g\n", object$theMean ))
   cat( sprintf( "Variance: %g\n", object$theVar ))
   cat( sprintf( "Standard deviation: %g\n", sqrt(object$theVar) ))
-  cat( sprintf( "Coefficent of variation (\\%): %g\n",
-                sqrt(object$theVar)*100/object$themean ))
-
   cat( sprintf( "Mode: %d\n", object$nDeposits[which.max(object$probs)] ))
   cat( sprintf( "Smallest number of deposits in the pmf: %d\n",
                 min(object$nDeposits) ))
   cat( sprintf( "Largest number of deposits in the pmf: %d\n",
                 max(object$nDeposits) ))
+  cat( sprintf( "Information entropy: %g\n",
+                max(object$entropy) ))
+
+  cat( sprintf( "\n###############################################################\n"))
   cat(sprintf("\n\n\n\n"))
 
 }
-
-#' @title Get the pmf for the number of undiscovered deposits
-#'
-#' @description Get the probability mass function (pmf)
-#' for the number of undiscovered deposits in the permissive tract.
-#'
-#' @param object
-#' An object of class "NDepositsPmf"
-#'
-#' @return Dataframe containing the pmf. The dataframe has two columns: The
-#' first lists the numbers of deposits. The second lists the probabilities
-#' associated with those numbers.
-#'
-#' @examples
-#' nDepositsPmf <- NDepositsPmf( "Poisson", list(theMean=5), "" )
-#' getNDepositPmf( nDepositsPmf )
-#'
-#' @export
-#'
-getNDepositPmf <- function(object) {
-  return(data.frame(nDeposits = object$nDeposits,
-                    probs = object$probs))
-}
-
 
 
 #' @title Construct the pmf for the number of undiscovered deposits
@@ -466,170 +357,74 @@ getNDepositPmf <- function(object) {
 #' Character string with the type of pmf (See Details).
 #'
 #' @param pmf.args
-#' List with the arguments characterizing the specified type (See Details).
+#' List with the arguments for the specified type (See Details).
 #'
 #' @param description
 #' Character string with a short description of the pmf.
 #'
 #' @details
-#' The type must be one of "Mark3", "Mark3Revised",
-#' "UserSpecified", "Poisson", "NegBinomial", or "Debug". Each type has
-#' different arguments, which are specified in pmf.args. The arguments for
-#' each type are described below.
-#'
-#' \emph{Mark3}
-#'
-#' List pmf.args has one element, which is named "thresholds". Thresholds
-#' is a vector of integers. The meaning of each element in the vector
-#' is described in this table. To make the table concise,
-#' threshold[1] is represented by t[1], and so on. The size of vector thresholds
-#' can be only 3, 5, 7 or 9.
-#'
-#' \tabular{lllll}{
-#' Element \tab Size = 3             \tab Size = 5              \tab Size = 7               \tab Size = 9                \cr
-#' t[1]    \tab P( N >= t[1] ) = 0.9 \tab P( N >= t[1] ) = 0.9  \tab P( N >= t[1] ) = 0.9   \tab P( N >= t[1] ) = 0.9    \cr
-#' t[2]    \tab P( N >= t[2] ) = 0.5 \tab P( N >= t[2] ) = 0.5  \tab P( N >= t[2] ) = 0.5   \tab P( N >= t[2] ) = 0.5    \cr
-#' t[3]    \tab P( N >= t[3] ) = 0.1 \tab P( N >= t[3] ) = 0.1  \tab P( N >= t[3] ) = 0.1   \tab P( N >= t[3] ) = 0.1    \cr
-#' t[4]    \tab ---                  \tab P( N >= t[4] ) = 0.05 \tab P( N >= t[4] ) = 0.05  \tab P( N >= t[4] ) = 0.05   \cr
-#' t[5]    \tab ---                  \tab P( N >= t[5] ) = 0.01 \tab P( N >= t[5] ) = 0.01  \tab P( N >= t[5] ) = 0.01   \cr
-#' t[6]    \tab ---                  \tab ---                   \tab P( N >= t[6] ) = 0.005 \tab P( N >= t[6] ) = 0.005  \cr
-#' t[7]    \tab ---                  \tab ---                   \tab P( N >= t[7] ) = 0.001 \tab P( N >= t[7] ) = 0.001  \cr
-#' t[8]    \tab ---                  \tab ---                   \tab ---                    \tab P( N >= t[8] ) = 0.0005 \cr
-#' t[9]    \tab ---                  \tab ---                   \tab ---                    \tab P( N >= t[9] ) = 0.0001
-#' }
-#'
-#' The expression P( N >= t[1] ) = 0.9 means that the probability that the
-#' number of the deposits (N)
-#' will be at least t[1] is 0.9. That is, there is a 0.9 probability
-#' (90 percent chance) of finding t[1] or more
-#' deposits. The elements of t (thresholds) must be nondecreasing. For example,
-#' if the size is 3, then t[1] <= t[2] <= t[3]. Although it seems that the
-#' elements of t (thresholds) should
-#' be strictly increasing, this is not required by the algorithm implemented
-#' in Fortran subroutine Mark3Pmf
-#'
-#' If t[1] is 0, then, according to the previous definition, P( N >= 0 ) = 0.9.
-#' Of course,
-#' this is wrong because P( N >= 0 ) = 1. To address this problem, the
-#' algorithm is implemented such that P( N >= 1 ) < 0.9.
-#'
-#' The p quantile of the cumulative distribution function F is defined as
-#' the smallest x such that F(x) >= p. (DeGroot and Schverish, 2002, p. 115).
-#' That is, the p quantile is the smallest x such that P( X <= x ) >= p where
-#' X is a random variable.
-#' This definition obviously differs from that for thresholds. Hence, quantiles
-#' are not thresholds.
-#'
-#' The probabilities in each column of the above table appear to constitute
-#' a complementary cumulative
-#' distribution function (ccdf). However, a ccdf G is defined as
-#' G(x) = P( X > x). (See the wikipedia reference.)
-#' Because the table lists P( X >= x ), the probabilities in each column do
-#' not constitute a ccdf. To
-#' prevent any confusion, these probabilites are called "alternative
-#' complementary cumulative distribution function,"
-#' which will be abbreviated "accdf".
-#'
-#' Fortran subroutine Mark3Pmf calculates a pmf such that its aacdf
-#' approximates (but rarely equals) the aacdf that is specified with
-#' the thresholds.
-#' This subroutine was extracted from program Mark3B (Root and others, 1992;
-#' Root and others, 1998) and then compiled as a direct link library.
-#'
-#' \emph{Mark3Revised}
-#'
-#' List pmf.args has two elements, which are named "thresholds" and
-#' "maxNumberOfDeposits". Thresholds was described in the previous section.
-#' Variable maxNumberOfDeposits is an integer; it must be greater than or
-#' equal to the last element in thresholds.
-#'
-#' Fortran subroutine Mark3RevisedPmf calculates a pmf such that its aacdf
-#' equals exactly the aacdf that is specified with the thresholds.
-#' The algorithm was developed and implemented by Jeffery D. Phillips.
-#'
-#' \emph{UserSpecified}
-#'
-#' List pmf.args has two elements, which are named "anchorPts" and
-#' "relProbabilities". anchorPts is an integer vector, and relProbabilities is
-#' a real vector with the same size as anchorPts.
-#'
-#' A common way to use this function is to have three elements in vector
-#' anchorPts and
-#' three elements in vector relProbabilities. Regarding vector anchorPts,
-#' the first element
-#' is the minimum number of deposits in the tract, the second is the mode,
-#' and the third is the maximum
-#' number of deposits in the tract. The first element must be greater than
-#' or equal to 0, and all elements
-#' must be in strictly ascending order. That is,
-#' 0 <= anchorPts[1] < anchorPts[2] < anchorPts[3].
-#' Regarding vector relProbabilities, the first, second, and third elements
-#' are the relative probabilities
-#' associated with anchorPts[1], anchorPts[2], and anchorPts[3]. The relative
-#' probability is any postive,
-#' real-valued number. Because anchorPts[2] is the mode, relProbabilities[2]
-#' must be
-#' greater than relProbabilities[1] and relProbabilities[3]. The sum of the
-#' elements in relProbabilities
-#' is not required to be 1.
-#'
-#' The relative probabilites between anchorPts[1] and anchorPts[3] are
-#' calculated by linearly interpolating the
-#' elements of relProbabilities. Then these interpolated, relative
-#' probabilities are scaled, so that their sum is 1.
-#'
-#' This function is very flexibile: The minimum number of elements in vector
-#' anchorPts is 2; there is no maximum.
-#' (Vector relProbabilities and vector anchorPts must have the same length.)
-#' If this flexibility is exploited, then
-#' the user should carefully check the calculated probability mass function.
-#'
-#' \emph{Poisson}
-#'
-#' List pmf.args has one element, which is named "theMean". theMean is
-#' real-valued and is the mean of the Poisson pmf.
-#'
-#' For the Poisson pmf, the random variable that represents the number of
-#' undiscovered deposits extends from 0 to infinity. Of course, the Monte Carlo
-#' simulation cannot be performed for an infinite range. When the number of
-#' deposits is far from the mode, the probabilities are so small
-#' that they have no practical effect on the simulation results.
-#' The range associated with these small probabilites is delimited
-#' by a lower bound and an upper bound, which are calulated from
-#' variable relProbabilityThreshold. To understand the meaning of this variable,
-#' assume that it is 0.001. The lower bound is the quantile for which
-#' the probability in the left tail is 0.001 times the probability of the
-#' mode of the pmf. Similarly, the right bound is the quantile for which
-#' the probability in the right tail is 0.001 times the probability of the
-#' mode of the pmf.
-#' The pmf is truncated at the lower and the upper bounds, and then rescaled
-#' so that the sum of the probabilities is 1. This rescaling changes the
-#' mean of the pmf slightly.
-#' Usually, the mean of the pmf is small, so that the lower bound is 0.
-#' In this (common) case, the lower bound does not affect
-#' the truncation of the Poisson pmf.
-#'
-#' Variable relProbabilityThreshold has a default value, but it can be changed
-#' by specifyting the new value in list pmf.args.
+#' The type must be either "NegBinomial" or "Custom". Each type, as well as
+#' it associated arguments, is described below.
 #'
 #' \emph{NegBinomial}
 #'
-#' List pmf.args has two elements, which are named "theMean" and "theStdDev".
-#' Both theMean and theStdDev are real-valued. theMean and theStdDev are
-#' the mean and the standard deviation of the negative binomial pmf. theMean
-#' must be less than the square of variable theStdDev.
+#' List pmf.args has one required element and four optional arguments.
+#' The required element \code{nDepEst} is a dataframe containing
+#' the estimates of the numbers of undiscovered deposits by the members of the
+#' assessment team. Each row of the dataframe has information for one member.
+#' There are five columns in the dataframe.
+#' Column 1 ("Name") lists the member identifiers.
+#' Column 2 ("Weight") lists the weights that multiply the cost function.
+#' Column 3 ("N90") lists the estimated number of the undiscovered deposits,
+#' n90, for which P( N >= n90 ) = 0.9 where N is the random variable representing
+#' the number of undiscovered deposits.
+#' Likewise, column 4 ("N50") lists n50 for which P( N >= n50 ) = 0.5, and
+#' column 5 ("N10") lists n10 for which P( N >= n10 ) = 0.1. Within each row
+#' of the dataframe, n90, n50, and n10 must be in strickly ascending order. That
+#' is, n90 <= n50 <= n10.
 #'
-#' For the negative binomial pmf, the random variable that represents the
-#' number of
-#' undiscovered deposits extends from 0 to infinity. Of course, the Monte Carlo
-#' simulation cannot be performed for an infinity range. The procedure that
-#' solves for this problem is described in section for the Poisson pmf.
+#' There are four optional arguments that may be added to the list of parameters
+#' for the pmf: \code{nGridPoints}, \code{power},
+#' \code{isOptimized}, and \code{probRightTail}.
+#' To understand the first three arguments,
+#' it is necessary to understand how the two
+#' parameters that are needed to characterize a negative binomial pmf are
+#' estimated. The two parameters are specified on a two-dimensional grid, and
+#' \code{nGridPoints} is the number of grid points in each dimension of the
+#' grid. At
+#' each grid point, a cost function is calculated, and a parameter in that
+#' cost function is \code{power}.
+#' If the value of argument \code{isOptimized} is FALSE, then
+#' the two parameter values associated with the grid point with the lowest cost
+#' are used as the parameters for negative binomial pmf. Otherwise, these two
+#' parameter values are the starting point for an optimization that finds their
+#' optimal values.
 #'
-#' \emph{Debug}
+#' To understand the fourth optional argument, it is necessary to understand
+#' the negative binomial pmf itself. The random variable that represents the
+#' number of undiscovered deposits extends from 0 to infinity. Of course,
+#' the probability calculations cannot be performed for an infinite range.
+#' At some point in the right tail, the probabilities are
+#' so small that they have no practical effect on the probability calculations.
+#' Thus, the pmf is truncated at an appropriate large value. This upper
+#' truncation point is the quantile above which the sum of the probabilities
+#' (from that quantile to infinity)
+#' is less than (or equal to) \code{probRightTail}.
+#' The lower truncation point is that quantile for which the probability is
+#' less than or equal to that at the upper truncation point. After truncation,
+#' the pmf is normalized so that the sum of its probabilities is 1.
+#'
+#' The default values for these four optional arguments are appropriate for
+#' most assessments, so they should rarely be changed.
+#'
+#' The computation of the negative binomial pmf requires
+#' a long time---but usually less than a minute.
+#'
+#' \emph{Custom}
 #'
 #' List pmf.args has two elements, which are named "nDeposits" and
 #' "relProbabilities". nDeposits is an integer vector, and relProbabilities is
-#' a real vector with the same size as anchorPts.
+#' a real vector.
 #'
 #' Regarding vector nDeposits, all elements must be in strictly ascending order.
 #' That is,
@@ -638,14 +433,6 @@ getNDepositPmf <- function(object) {
 #' real-valued numbers. The sum of the elements in relProbabilities is
 #' not required to be 1. Vector nDeposits
 #' and vector relProbabilites must have the same length.
-#'
-#' Here are three examples: If nDeposits = c(1) and relProbabilities=c(1),
-#' then the probability mass function will be 1
-#' when nDeposits is 1. If nDeposits = c(10) and relProbabilities=c(1),
-#' then the probability mass function will be 1
-#' when nDeposits is 10. If nDeposits = c(0,1) and relProbabilities=c(1.0,0.5),
-#' then the probability mass function will
-#' be 0.667 and 0.333 when nDeposits is 0 and 1, respectively.
 #'
 #' @return If the input arguments have an error, the R-value NULL is returned.
 #' Otherwise, a list with the following components is returned.
@@ -658,146 +445,75 @@ getNDepositPmf <- function(object) {
 #' @return \item{nDeposits}{Vector containing the number of undiscovered
 #' deposits that are associated with the non-zero probabilities in the pmf.
 #' The size of vector nDeposits is equal to the size of vector probs.}
-#' @return \item{specifiedAccdf}{If the type is "Mark3" or
-#' "Mark3Revised", then
-#' this entry is a vector containing probabilities from the alternative
-#' complementary cumulative distribution function. These probabilites are
-#' associated with the thresholds, which are specified in pmf.arg. Otherwise,
-#' this entry is NULL.}
 #' @return \item{theMean}{The expected value (mean) of the number of
-#' undiscovered deposits within the permissive tract. The number might differ
-#' slightly from the input specification.}
+#' undiscovered deposits within the permissive tract.}
 #' @return \item{theVar}{The variance of the number of undiscovered deposits
 #' within the permissive tract.}
-#' @return \item{accdf}{The alternative complementary cumulative distribution
-#' function for the pmf. Although it is calculated for all types of pmfs,
-#' it is useful only for the "Mark3" and "Mark3Revised" types.}
 #' @return \item{entropy}{The information entropy, which is calculated with
 #' the natural logarithm.}
 #'
 #' @references
-#' DeGroot, M.H., and Schervish, M.J., 2002, Probability and statistics: Addison-Wesley.
-#'
-#' Root, D.H., Menzie, W.D., and Scott, W.A., 1992, Computer Monte Carlo simulation in quantitative
-#' resource estimation: Nonrenewable resources, v. 1, no. 2, p. 125-138.
-#'
-#' Root, D.H., Scott, W.A., Jr., Schruben, P.G., 1998, MARK3B Resource assessment program for Macintosh:
-#' U.S. Geological Survey, Open-file report 98-356.
-#'
-#' http://en.wikipedia.org/wiki/Cumulative_distribution_function
-#'
+#' Ellefsen, K.J., Phillips, J.D.,
+#' 2017, Probability calculations for three-part mineral resource assessments,
+#' U.S. Geological Survey Report Techniques and Methods XXXX, XX p.
 #'
 #' @examples
-#' # Mark3 pmf
-#' nDepositsPmf1 <- NDepositsPmf( "Mark3", list(thresholds=c(1,7,20)),
-#' "Test Mark3" )
-#' plot( nDepositsPmf1 )
+#' pmf1 <- NDepositsPmf("NegBinomial", list(nDepEst = ExampleDepEst1))
+#' plot(pmf1)
 #'
-#' # Mark3Revised pmf
-#' nDepositsPmf2 <- NDepositsPmf( "Mark3Revised",
-#' list(thresholds=c(1,7,20),maxNumberOfDeposits=23), "Test Mark3Revised" )
-#' plot( nDepositsPmf2 )
+#' pmf2 <- NDepositsPmf("NegBinomial",
+#'          list(nDepEst = ExampleDepEst1, probRightTail = 0.0005,
+#'          nGridPoints = 65, power = 1.0, isOptimized = FALSE))
+#' plot(pmf2)
 #'
-#' # User specified pmf
-#' nDepositsPmf3 <- NDepositsPmf( "UserSpecified",
-#' list(anchorPts=c(1,4,10),relProbabilities=c(1,4,1)),
-#' "Test UserSpecified" )
-#' plot( nDepositsPmf3 )
+#' pmf3 <- NDepositsPmf("Custom", list(nDeposits = 1, relProbabilities = 1))
+#' plot(pmf3)
 #'
-#' # Poisson pmf
-#' nDepositsPmf4 <- NDepositsPmf( "Poisson", list(theMean=5), "Test Poisson" )
-#' plot( nDepositsPmf4 )
-#'
-#' # Negative binomial pmf
-#' nDepositsPmf5 <- NDepositsPmf( "NegBinomial", list(theMean=5,theStdDev=4),
-#' "Test Negative binomial" )
-#' plot( nDepositsPmf5 )
-#'
-#' # Debug pmf
-#' nDepositsPmf6 <- NDepositsPmf( "Debug", list(nDeposits=1,relProbabilities=1),
-#' "Test Debug 1" )
-#' plot( nDepositsPmf6 )
-#'
-#' # Debug pmf
-#' nDepositsPmf7 <- NDepositsPmf( "Debug",
-#' list(nDeposits=c(2,3),relProbabilities=c(0.3,0.7)), "Test Debug 2" )
-#' plot( nDepositsPmf7 )
+#' pmf4 <- NDepositsPmf("Custom",
+#'          list(nDeposits = c(2, 3), relProbabilities = c(0.3, 0.7)))
+#' plot(pmf4)
 #'
 #' @export
 #'
 NDepositsPmf <- function( type, pmf.args, description="" ) {
 
 
-  # Remove any parts of the pmf for which the number of draws will be 0. These
-  # parts are associated with very small probabilities.
-  AdjustPmf <- function( probs, nDeposits, nTotalDraws )
-  {
-
-    nDraws <- round( probs * nTotalDraws )
-    indices <- which( nDraws == 0, arr.ind=TRUE )
-    if( length( indices ) > 0 ) {
-      cat( sprintf( "WARNING: Function AdjustPmf\n" ) )
-      cat( sprintf( "Some probabilities are so small that the number of draws are 0.\n" ) )
-      cat( sprintf( "These probabilities are omitted from the simulation.\n" ) )
-      cat( sprintf( "The problems are\n" ) )
-      cat( sprintf( "Probability    nDraws    nDeposits\n" ) )
-      for( i in 1:length(indices) ) {
-        cat( sprintf( "%g       %g        %g\n",
-                      probs[indices[i]], nDraws[indices[i]],
-                      nDeposits[indices[i]] ) )
-      }
-      nDeposits <- nDeposits[-indices]
-      probs <- probs[-indices]
-      probs <- probs / sum( probs )
-    }
-
-    return( list( probs=probs, nDeposits=nDeposits) )
-
-  }
-
   CalcSummaryStats <- function( probs, nDeposits, base=exp(1) )
   {
 
     theMean <- sum( probs * nDeposits )
     theVar <- sum( probs * nDeposits^2 ) - theMean^2
-    tmp <- c( 1, 1-cumsum( probs ) )
-    theAccdf <- tmp[-length(tmp)]  # exclude the last element, which is 0
     theEntropy <- - sum( probs * log( probs, base=base ) )
 
-    return( list( theMean=theMean, theVar=theVar, theAccdf=theAccdf,
-                  theEntropy=theEntropy ) )
+    return( list( theMean=theMean, theVar=theVar, theEntropy=theEntropy ) )
 
   }
 
-  pmf <- switch( type,
-                 Mark3 = do.call( CalcMark3Pmf, pmf.args ),
-                 Mark3Revised = do.call( CalcMark3RevisedPmf, pmf.args ),
-                 UserSpecified = do.call( CalcUserSpecifiedPmf, pmf.args ),
-                 NegBinomial = do.call( CalcNegBinomialPmf, pmf.args ),
-                 Poisson = do.call( CalcPoissonPmf, pmf.args ),
-                 Debug = do.call( CalcDebugPmf, pmf.args ) )
+  if(!any(type == c("NegBinomial", "Custom"))) {
+    stop( sprintf( "Function NDepositsPmf\n" ),
+          sprintf( "Argument type must be either NegBinomial or Custom.\n"),
+          sprintf( "It is specified as %s\n", type),
+          call. = FALSE )
+  }
 
+  pmf <- switch( type,
+                 NegBinomial = do.call( CalcNegBinomialPmf, pmf.args ),
+                 Custom = do.call( CalcCustomPmf, pmf.args ) )
 
   # Obviously, it must be greater than 0. Greater than 5000 is preferable.
   nTotalDraws <- 20000
 
-  adjusted.pmf <- AdjustPmf( pmf$probs, pmf$nDeposits, nTotalDraws )
+  stats <- CalcSummaryStats( pmf$probs, pmf$nDeposits )
 
-  stats <- CalcSummaryStats( adjusted.pmf$probs, adjusted.pmf$nDeposits )
-
-  # If the type is neither Mark3 nor Mark3Revised, then specifiedAccdf is
-  # set to NULL.
-  rval <- list( type=type,
-                pmf.args=pmf.args,
-                description=description,
-                call=sys.call(),
-                probs=adjusted.pmf$probs,
-                nDeposits=adjusted.pmf$nDeposits,
-                specifiedAccdf=pmf$specifiedAccdf,
-                theMean=stats$theMean,
-                theVar=stats$theVar,
-                accdf=stats$theAccdf,
-                entropy=stats$theEntropy )
+  rval <- list( type = type,
+                pmf.args = pmf.args,
+                description = description,
+                call = sys.call(),
+                probs = pmf$probs,
+                nDeposits = pmf$nDeposits,
+                theMean = stats$theMean,
+                theVar = stats$theVar,
+                entropy = stats$theEntropy )
 
   class(rval) <- "NDepositsPmf"
   return(rval)
