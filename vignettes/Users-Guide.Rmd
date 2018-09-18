@@ -488,7 +488,7 @@ This work was funded by the Development of Assessment Techniques and Analysis Pr
 # References Cited
 
 Ellefsen, K.J., 2017, Probability calculations for three-part mineral resource assessments U.S. Geological Survey Techniques
-and Methods, book 7, chap. C15, 14 p., http://dx.doi.org/ 10.3133/tm7C15.
+and Methods, book 7, chap. C15, 14 p., https://doi.org/ 10.3133/tm7C15.
 
 R Core Team, 2015, An introduction to R: R Foundation for Statistical Computing, Vienna, Austria: Vienna University of Economics and Business, hosted by the Institute for Statistics and Mathematics of Wirtschafts University, accessed January 2016 at https://cran.r-project.org/doc/manuals/r-release/R-intro.html.
 

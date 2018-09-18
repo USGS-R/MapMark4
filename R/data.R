@@ -53,7 +53,7 @@
 #' Roan Group, Central African Copperbelt, Katanga Basin, Democratic Republic
 #' of the Congo and Zambia: U.S. Geological Survey Scientific Investigations
 #' Report 2010-5090-T, 162 p., and spatial data,
-#' http://dx.doi.org/10.3133/sir20105090T.
+#' https://doi.org/10.3133/sir20105090T.
 #'
 "ExampleDepEst1"
 
@@ -81,7 +81,7 @@
 #' Roan Group, Central African Copperbelt, Katanga Basin, Democratic Republic
 #' of the Congo and Zambia: U.S. Geological Survey Scientific Investigations
 #' Report 2010-5090-T, 162 p., and spatial data,
-#' http://dx.doi.org/10.3133/sir20105090T.
+#' https://doi.org/10.3133/sir20105090T.
 #'
 "ExampleDepEst2"
 
@@ -109,7 +109,7 @@
 #' Roan Group, Central African Copperbelt, Katanga Basin, Democratic Republic
 #' of the Congo and Zambia: U.S. Geological Survey Scientific Investigations
 #' Report 2010-5090-T, 162 p., and spatial data,
-#' http://dx.doi.org/10.3133/sir20105090T.
+#' https://doi.org/10.3133/sir20105090T.
 #'
 "ExampleDepEst3"
 
@@ -137,6 +137,6 @@
 #' Roan Group, Central African Copperbelt, Katanga Basin, Democratic Republic
 #' of the Congo and Zambia: U.S. Geological Survey Scientific Investigations
 #' Report 2010-5090-T, 162 p., and spatial data,
-#' http://dx.doi.org/10.3133/sir20105090T.
+#' https://doi.org/10.3133/sir20105090T.
 #'
 "ExampleDepEst4"
